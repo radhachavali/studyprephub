@@ -134,7 +134,7 @@ function save(){try{localStorage.setItem(KEY,JSON.stringify(S))}catch(e){toast('
 /* ---------- account and cloud saving (Firebase) ---------- */
 var firebaseConfig={apiKey:"AIzaSyDpvS27o9i8NHYbCGB-YuLEyhDYa94bVdQ",authDomain:"studyprephub.firebaseapp.com",projectId:"studyprephub",storageBucket:"studyprephub.firebasestorage.app",messagingSenderId:"578977296879",appId:"1:578977296879:web:44eebdb0623f0e533a461a"};
 var FB={ok:false,ready:false,user:null,auth:null,db:null,timer:null,saving:false,again:false,loaded:false,status:''};
-var CLOUD_KEYS=['profile','target','sessions','days','mode','remind','lang','vocab','fixes','alsoRec','resume'];
+var CLOUD_KEYS=['profile','target','sessions','days','mode','remind','lang','vocab','fixes','alsoRec','resume','theme','resumeAsked','bannerOff'];
 function gate(){return FB.ok&&(!FB.ready||(!FB.user&&!S.guest))}
 function cloudRef(){return FB.db.doc('users/'+FB.user.uid+'/data/app')}
 function cloudSave(){
@@ -229,7 +229,19 @@ function todayStarter(){var a=STARTERS[S.profile?S.profile.type:'professional'];
 var SUN='<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></svg>';
 var MOON='<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 14.5A8 8 0 0 1 9.5 4 8 8 0 1 0 20 14.5z"/></svg>';
 function isDark(){var a=document.documentElement.getAttribute('data-theme');if(a)return a==='dark';return !!(window.matchMedia&&matchMedia('(prefers-color-scheme: dark)').matches)}
-function applyLook(){var r=document.documentElement;if(S.mode==='auto')r.removeAttribute('data-theme');else r.setAttribute('data-theme',S.mode);$('#modeBtn').innerHTML=isDark()?SUN:MOON}
+var THEMES={
+ teal:{n:'Teal',l:['#0F5E63','#E3F0F0','#FFFFFF'],d:['#5BB5B5','#173538','#062022']},
+ indigo:{n:'Indigo',l:['#3F4BB8','#E6E8F8','#FFFFFF'],d:['#9AA5F5','#1F2447','#0E1230']},
+ sunset:{n:'Sunset',l:['#C2410C','#FBE9DD','#FFFFFF'],d:['#F59E6B','#3A2216','#2A1005']},
+ forest:{n:'Forest',l:['#2F6B3A','#E2F0E5','#FFFFFF'],d:['#7BCB8A','#163020','#07210F']},
+ plum:{n:'Plum',l:['#7A3A8F','#F0E5F5','#FFFFFF'],d:['#C99BDB','#2E1A38','#220F2C']}
+};
+function applyLook(){
+  var r=document.documentElement;if(S.mode==='auto')r.removeAttribute('data-theme');else r.setAttribute('data-theme',S.mode);
+  var th=THEMES[S.theme]||THEMES.teal,c=isDark()?th.d:th.l;
+  r.style.setProperty('--accent',c[0]);r.style.setProperty('--soft',c[1]);r.style.setProperty('--accent-ink',c[2]);
+  $('#modeBtn').innerHTML=isDark()?SUN:MOON;
+}
 /* ---------- word accuracy: my words, learned fixes ---------- */
 function lev(a,b){var m=a.length,n=b.length,i,j,d=[];for(i=0;i<=m;i++){d[i]=[i]}for(j=1;j<=n;j++)d[0][j]=j;for(i=1;i<=m;i++)for(j=1;j<=n;j++)d[i][j]=Math.min(d[i-1][j]+1,d[i][j-1]+1,d[i-1][j-1]+(a[i-1]===b[j-1]?0:1));return d[m][n]}
 function sim(a,b){var L=Math.max(a.length,b.length);return L?1-lev(a,b)/L:1}
@@ -413,7 +425,7 @@ function aiMsg(e){
   return c==='limit'?'You have used today\'s AI improvements. They reset tomorrow morning.':c==='busy'?'The free AI is busy right now. Try again in a minute.':c==='signin'?'Sign in to use AI feedback.':c==='network'?'No connection to the server. Check your internet and try again.':c==='auth'?'Your sign-in expired. Sign out and in again.':'Something went wrong. Please try again.';
 }
 function vResume(){
-  var r=S.resume,rs=V.rs,h='<div class="card" style="border-color:var(--accent)"><div class="row between"><b>My resume</b><span class="pill '+(r?'good':'warn')+'">'+(r?'Saved':'Add this first')+'</span></div>';
+  var r=S.resume,rs=V.rs,h='<div class="card" style="border-color:var(--accent)"><div class="row between"><b>My resume</b><span class="pill '+(r?'good':'win')+'">'+(r?'Saved':'Optional')+'</span></div>';
   if(rs.busy)return h+'<p class="muted small">'+esc(rs.msg||'Reading…')+'</p></div>';
   if(r&&!rs.open){
     h+='<p class="muted small">'+r.text.split(/\s+/).length+' words, saved '+new Date(r.at).toLocaleDateString()+'. Steady uses it to write answers from your real experience.</p>'+
@@ -428,13 +440,19 @@ function vResume(){
   }
   return h+'</div>';
 }
+function vResumeStep(){
+  return '<div><span class="eyebrow">Step 2 of 2</span><h1>Add your resume</h1><p class="muted" style="margin-top:6px">With your resume, Steady writes answers from your real experience. It is optional: you can practise and get feedback without it, and add it any time from the Interview tab.</p></div>'+vResume()+'<button class="btn quiet" data-act="rsSkip" style="min-height:52px">Skip for now</button>';
+}
+function vBanner(){
+  if(S.resume||S.bannerOff)return '';
+  return '<div class="card" style="flex-direction:row;align-items:center;background:var(--soft);border-color:transparent"><div style="flex:1"><b>Add your resume</b><div class="small muted">For answers built from your own experience. Optional.</div></div><button class="btn" data-act="rsGo">Add</button><button class="btn ghost" data-act="bannerOff" aria-label="Hide this for now" style="padding:12px 12px">Not now</button></div>';
+}
 function vImprove(){
   var res=V.res,ai=res.ai,h='<div class="card" style="border-color:var(--win)"><div class="row between"><b>Better answer</b><span class="pill win">AI</span></div>';
   if(!CFG.worker)return h+'<p class="muted small">Writes a stronger version of your answer from your resume. It switches on when the Steady server is connected.</p></div>';
   if(!FB.user)return h+'<p class="muted small">Sign in to get a better answer written from your resume.</p><button class="btn quiet" data-act="signin">Sign in with Google</button></div>';
-  if(!S.resume)return h+'<div class="msg wait"><b>Add your resume first.</b> Steady writes a stronger answer from your answer and your resume, and uses only facts that are really there.</div><button class="btn block" data-act="rsGo">Add my resume</button></div>';
   if(!ai){
-    h+='<p class="muted small">Steady reads your answer and your resume, then writes a stronger spoken version.</p><label for="aiRole">Role or situation (optional)</label><input type="text" id="aiRole" maxlength="80" placeholder="Senior Program Manager interview" value="'+esc(V.aiRole)+'">'+
+    h+='<p class="muted small">'+(S.resume?'Steady reads your answer and your resume, then writes a stronger spoken version.':'Steady reads your answer and writes a stronger spoken version.')+'</p>'+(S.resume?'':'<div class="msg wait">Without your resume the answer uses only what you said. <button class="linkbtn" data-act="rsGoLink" style="padding:0;min-height:0;color:inherit">Add your resume</button> (optional) for a more personal version.</div>')+'<label for="aiRole">Role or situation (optional)</label><input type="text" id="aiRole" maxlength="80" placeholder="Senior Program Manager interview" value="'+esc(V.aiRole)+'">'+
       (V.aiErr?'<div class="msg no">'+esc(V.aiErr)+'</div>':'')+
       '<button class="btn block" data-act="improve"'+(V.aiBusy?' disabled':'')+'>'+(V.aiBusy?'Writing…':'Improve my answer')+'</button>';
     return h+'</div>';
@@ -443,8 +461,9 @@ function vImprove(){
   h+='<div><span class="eyebrow">Your answer</span><div class="box" style="font-size:14px;min-height:0;white-space:pre-wrap">'+esc(res.text)+'</div></div>'+
     '<div><span class="eyebrow" style="color:var(--good)">A stronger answer</span><div class="box" style="font-size:16px;min-height:0;white-space:pre-wrap;border-style:solid;border-color:var(--good)">'+esc(ai.better_answer)+'</div></div>'+
     '<button class="btn quiet" data-act="copyAns">Copy stronger answer</button>'+
+    (res.noResume?'<div class="msg wait">Written from your answer only. <button class="linkbtn" data-act="rsGo" style="padding:0;min-height:0">Add your resume</button> for a stronger, more personal version.</div>':'')+
     (ai.fill_in&&ai.fill_in.length?'<div class="msg wait"><b>Fill in before you say it.</b> Replace the [brackets] with real details.'+list('',ai.fill_in)+'</div>':'')+
-    (ai.not_in_resume&&ai.not_in_resume.length?'<div class="msg no"><b>Not found in your resume.</b> Say these only if they are true.'+list('',ai.not_in_resume)+'</div>':'')+
+    (!res.noResume&&ai.not_in_resume&&ai.not_in_resume.length?'<div class="msg no"><b>Not found in your resume.</b> Say these only if they are true.'+list('',ai.not_in_resume)+'</div>':'')+
     list('What worked',ai.worked)+list('To improve',ai.improve)+
     '<p class="small muted">'+(typeof ai.remaining==='number'?ai.remaining+' improvement'+(ai.remaining===1?'':'s')+' left today. ':'')+'Read it aloud a few times, in your own words.</p>';
   return h+'</div>';
@@ -470,8 +489,9 @@ function vToday(){
   var h=vNudge();
   h+='<div class="card" style="border-color:var(--accent)"><div class="row between"><span class="eyebrow">Today\'s practice</span><span class="pill">'+esc(label())+(S.profile&&S.profile.goal?' · '+esc(S.profile.goal):'')+'</span></div><h2>Say it out loud</h2><p class="muted small">Two answers, about 5 minutes each. Speak, then see your pace, fillers and pauses.</p>'+
    '<div class="stepgrid">'+[[TMAY,'Most asked question'],[st,'Starter prompt']].map(function(x){var p=x[0];return '<div class="step"><span class="dot'+(doneToday(p.id)?' on':'')+'">'+(doneToday(p.id)?'✓':'')+'</span><div style="flex:1"><span class="eyebrow">'+x[1]+'</span><b style="display:block">'+esc(p.q)+'</b><button class="btn'+(doneToday(p.id)?' quiet':'')+'" style="margin-top:8px" data-go="'+p.id+'">'+(doneToday(p.id)?'Practise again':'Speak now')+'</button></div></div>'}).join('')+'</div></div>';
+  h+=vBanner();
   h+='<div class="card"><div class="row between"><div><b>'+(S.sessions.length?S.sessions.length+' session'+(S.sessions.length>1?'s':'')+' so far':'No sessions yet')+'</b><div class="muted small">'+(s?s+'-day streak':'Practise today to start a streak')+'</div></div><button class="btn quiet" data-tab="progress">Progress</button></div></div>';
-  h+='<div class="card"><span class="eyebrow">Coming next</span><ul class="muted small" style="margin:0;padding-left:18px"><li>Sign in, so progress follows you</li><li>Role-specific questions from your resume</li><li>AI interviewer that listens and gives feedback on what you said</li></ul></div>';
+  h+='<div class="card"><span class="eyebrow">Coming next</span><ul class="muted small" style="margin:0;padding-left:18px"><li>Role-specific questions, with or without your resume</li><li>AI interviewer that listens and gives feedback on what you said</li></ul></div>';
   return h;
 }
 function promptById(id){if(id==='tmay')return TMAY;var all=[].concat.apply([],Object.keys(STARTERS).map(function(k){return STARTERS[k]}));var f=all.filter(function(x){return x.id===id})[0];return f||todayStarter()}
@@ -503,7 +523,7 @@ function vSpeak(){
 }
 function soon(step,title,text){return '<div class="card" style="opacity:.92"><div class="row between"><b>'+title+'</b><span class="pill win">Step '+step+'</span></div><p class="muted small">'+text+'</p></div>'}
 function vJobs(){
-  return vResume()+'<div><span class="eyebrow">Interview</span><h2>Get ready for the interview</h2><p class="muted small">Everything below uses your resume. It is sent to the AI only when you tap an AI button. Until these arrive, practise out loud in the Speak tab.</p></div>'+
+  return vResume()+'<div><span class="eyebrow">Interview</span><h2>Get ready for the interview</h2><p class="muted small">Your resume is optional. When you add it, the features below use it, and it is sent to the AI only when you tap an AI button. Until these arrive, practise out loud in the Speak tab.</p></div>'+
    soon(3,'Tell me about yourself','Answer a few short questions and get a tailored 30 and 60 second answer, then rehearse it with an interviewer.')+
    soon(3,'Search by job role','Type a role and get technical, situational and business questions, with how to answer each.')+
    soon(5,'Match my resume','Two buttons: prepare interview questions from your resume, or analyse and build an ATS-friendly resume as a Word file.');
@@ -532,6 +552,7 @@ function vProgress(){
   h+='</div>';
   h+='<div class="card"><h3>Recent sessions</h3>'+(n?ss.slice(0,12).map(function(s){return '<details class="entry"><summary><b>'+esc(s.q.length>70?s.q.slice(0,67)+'…':s.q)+'</b><div class="muted small">'+dayLabel(s.n)+' · '+s.secs+' sec · '+s.wpm+' wpm · '+s.fill+' fillers</div></summary><p class="small" style="margin-top:6px">'+esc(s.text)+'</p></details>'}).join(''):'<p class="muted small">No sessions yet.</p>')+'</div>';
   h+='<div class="card"><span class="eyebrow">Settings</span><b>'+esc(label())+(S.profile&&S.profile.goal?' · '+esc(S.profile.goal):'')+'</b><div class="row wrap"><button class="btn quiet" data-act="switch">Change profile</button></div>'+
+   '<div><label>Colour</label><div class="row wrap">'+Object.keys(THEMES).map(function(k){var c=THEMES[k].l[0],on=(S.theme||'teal')===k;return '<button data-theme="'+k+'" aria-pressed="'+on+'" aria-label="'+THEMES[k].n+' colour" style="display:inline-flex;align-items:center;gap:8px;padding:8px 14px;min-height:44px;border-radius:999px;font-weight:700;background:var(--surface);border:2px solid '+(on?'var(--accent)':'var(--line)')+'"><span style="width:18px;height:18px;border-radius:50%;background:'+c+'"></span>'+THEMES[k].n+'</button>'}).join('')+'</div></div>'+
    '<div><label>Best time to practise</label><div class="row wrap">'+TIMES.map(function(t){return '<button class="pill'+(S.remind===t[0]?' win':'')+'" data-time="'+t[0]+'">'+fmt12(t[0])+'</button>'}).join('')+'</div></div>'+
    '<details class="card" style="padding:12px;background:var(--bg)"><summary><b>Words I say often</b> <span class="muted small">(company, tools, job terms)</span></summary><div style="margin-top:8px"><textarea id="vocab" rows="2" placeholder="Leoforce, Scrum Master, Jira, Confluence">'+esc((S.vocab||[]).join(', '))+'</textarea><p class="small muted">The phone mishears names. List yours and Steady corrects them in your answers.</p><button class="btn quiet" data-act="saveVocab">Save my words</button></div></details>'+'<div class="msg '+(FB.user?'ok':'wait')+'">'+(FB.user?'Signed in as <b>'+esc(FB.user.email||FB.user.displayName||'your account')+'</b>. '+(FB.status==='error'?'Saving to your account failed. It will retry.':FB.status==='saving'?'Saving…':'Your progress is saved to your account.'):'Not signed in. Progress is saved on this device only.')+'</div>'+(FB.user?'<button class="btn quiet" data-act="signout">Sign out</button>':(FB.ok?'<button class="btn quiet" data-act="signin">Sign in with Google</button>':''))+'<p class="small muted">Recordings are never saved; they stay in this page until you close it.</p><button class="btn ghost" data-act="wipe">'+(V.confirmWipe?'Tap again to delete everything':'Delete all my data')+'</button></div>';
   return h;
@@ -546,8 +567,8 @@ function vOnboard(){
 }
 function layout(){
   var m=$('#main'),k=m.children,i;
-  $('#app').classList.toggle('nonav',!(S.profile&&!V.onb&&!gate()));
-  if(gate()||!S.profile||V.onb){for(i=0;i<k.length;i++)if(k[i].classList.contains('card'))k[i].classList.add('wide');return}
+  $('#app').classList.toggle('nonav',!(S.profile&&!V.onb&&!gate()&&!V.resumeStep));
+  if(gate()||!S.profile||V.onb||V.resumeStep){for(i=0;i<k.length;i++)if(k[i].classList.contains('card'))k[i].classList.add('wide');return}
   if(V.view==='speak'){if(k[1])k[1].classList.add('wide');for(i=0;i<k.length;i++){if(k[i].querySelector&&k[i].querySelector('#live'))k[i].classList.add('wide')}return}
   if(V.tab==='today'){for(i=0;i<Math.min(2,k.length);i++)k[i].classList.add('wide');return}
   if(V.tab==='practice'&&k.length)k[k.length-1].classList.add('wide');
@@ -555,10 +576,11 @@ function layout(){
 function render(){
   $('#profBtn').textContent=gate()?'Sign in':(S.profile?label()+' ▾':'Who are you?');
   var gated=gate();
-  $('#tabs').style.display=(S.profile&&!V.onb&&!gated)?'':'none';
+  $('#tabs').style.display=(S.profile&&!V.onb&&!gated&&!V.resumeStep)?'':'none';
   var m=$('#main'),h;
   if(gated)h=vSignin();
   else if(!S.profile||V.onb)h=vOnboard();
+  else if(V.resumeStep)h=vResumeStep();
   else if(V.view==='speak'&&V.prompt)h=vSpeak();
   else h={today:vToday,jobs:vJobs,talk:vTalk,practice:vPractice,progress:vProgress}[V.tab]();
   var y=m.scrollTop;m.innerHTML=h;layout();
@@ -579,8 +601,9 @@ document.addEventListener('click',function(e){
   if(d.time){S.remind=d.time;save();render();toast('Practice time saved');return}
   if(d.go){goPrompt(promptById(d.go));return}
   if(d.rate){var n=+d.rate;if(V.res){V.res.rating=n;saveSession(n);if(S.sessions[0]&&V.res.saved)S.sessions[0].rating=n;save();render()}return}
+  if(d.theme){S.theme=d.theme;save();applyLook();render();return}
   var a=d.act;if(!a)return;
-  if(a==='finish'){if(!onbValid())return;S.profile={type:V.pt,spec:V.pt==='other'?V.pspec.trim():'',goal:V.pg==='Other'?V.pgs.trim():V.pg};V.onb=false;V.tab='today';save();render()}
+  if(a==='finish'){if(!onbValid())return;S.profile={type:V.pt,spec:V.pt==='other'?V.pspec.trim():'',goal:V.pg==='Other'?V.pgs.trim():V.pg};V.onb=false;V.tab='today';if(!S.resume&&!S.resumeAsked){V.resumeStep=true;V.rs.open=true;V.rs.draft='';V.rs.msg=''}save();render();$('#main').scrollTop=0}
   else if(a==='cancelOnb'){V.onb=false;render()}
   else if(a==='switch')openSwitch();
   else if(a==='back'){if(T.on)return;if(V.res&&V.res.a&&!V.res.saved)saveSession(V.res.rating);V.view=null;V.res=null;render()}
@@ -596,12 +619,16 @@ document.addEventListener('click',function(e){
   else if(a==='rsEdit'){V.rs.open=true;V.rs.draft=S.resume?S.resume.text:'';V.rs.msg='';render()}
   else if(a==='rsCancel'){V.rs.open=false;V.rs.draft='';V.rs.msg='';render()}
   else if(a==='rsRemove'){S.resume=null;V.rs={open:false,draft:'',busy:false,msg:''};save();render();toast('Resume removed')}
-  else if(a==='rsSave'){var dt=tidy(($('#rsText')?$('#rsText').value:V.rs.draft)||'');if(dt.length<80){toast('Paste or upload your full resume first.');return}S.resume={text:dt.slice(0,MAXRES),at:Date.now()};V.rs={open:false,draft:'',busy:false,msg:''};save();render();toast('Resume saved')}
+  else if(a==='rsSave'){var dt=tidy(($('#rsText')?$('#rsText').value:V.rs.draft)||'');if(dt.length<80){toast('Paste or upload your full resume first.');return}S.resume={text:dt.slice(0,MAXRES),at:Date.now()};S.resumeAsked=true;V.rs={open:false,draft:'',busy:false,msg:''};if(V.resumeStep){V.resumeStep=false;V.tab='today'}save();render();$('#main').scrollTop=0;toast('Resume saved')}
+  else if(a==='rsSkip'){S.resumeAsked=true;V.resumeStep=false;V.rs={open:false,draft:'',busy:false,msg:''};V.tab='today';save();render();$('#main').scrollTop=0}
+  else if(a==='rsGoLink'){V.tab='jobs';V.view=null;V.rs.open=true;V.rs.draft='';render();$('#main').scrollTop=0}
+  else if(a==='bannerOff'){S.bannerOff=true;save();render()}
   else if(a==='rsGo'){V.tab='jobs';V.view=null;V.rs.open=true;V.rs.draft='';render();$('#main').scrollTop=0}
   else if(a==='copyAns'){var ta=V.res&&V.res.ai?V.res.ai.better_answer:'';if(navigator.clipboard&&ta)navigator.clipboard.writeText(ta).then(function(){toast('Copied')},function(){toast('Could not copy')});else toast('Could not copy')}
   else if(a==='improve'){
     if(V.aiBusy||!V.res||!V.res.text)return;var rr=V.res;V.aiBusy=true;V.aiErr='';render();
-    coachCall('improve',{question:V.prompt.q,answer:rr.text,resume:S.resume.text.slice(0,MAXAI),role:V.aiRole||'',vocab:(S.vocab||[]).slice(0,40),target:V.prompt.target||0})
+    rr.noResume=!S.resume;
+    coachCall('improve',{question:V.prompt.q,answer:rr.text,resume:S.resume?S.resume.text.slice(0,MAXAI):'',role:V.aiRole||'',vocab:(S.vocab||[]).slice(0,40),target:V.prompt.target||0})
       .then(function(j){rr.ai=j}).catch(function(err){V.aiErr=aiMsg(err)}).then(function(){V.aiBusy=false;render()});
   }
   else if(a==='signin')signIn();
