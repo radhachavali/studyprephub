@@ -161,6 +161,8 @@ function tips(a,target){
 }
 /* ---------- voice recording ---------- */
 var SR=window.SpeechRecognition||window.webkitSpeechRecognition;
+function isMobile(){return /Android|iPhone|iPad|iPod/i.test(navigator.userAgent||'')}
+function alsoRec(){return S.alsoRec!==undefined?S.alsoRec:!isMobile()}
 var T={on:false,final:'',interim:'',start:0,stamps:[],err:'',stop:false,sr:null,mr:null,chunks:[],stream:null,stopMeter:null,mime:''};
 function explain(c){return ({'not-allowed':'The microphone is blocked. Tap the lock icon next to the web address, open Permissions, set Microphone to Allow, then reload.','service-not-allowed':'Speech recognition is blocked for this browser. Use Chrome and check that Google voice typing is on in your phone settings.','audio-capture':'No microphone found, or another app is using it. Close other apps that use the microphone.','network':'Speech recognition needs an internet connection.','no-speech':'It did not hear anything. Speak closer to the microphone.','language-not-supported':'This language is not supported. Try English (India) or English (US).'})[c]||('Error: '+c)}
 function pickMime(){var c=['audio/webm;codecs=opus','audio/webm','audio/mp4','audio/ogg'];for(var i=0;i<c.length;i++){try{if(window.MediaRecorder&&MediaRecorder.isTypeSupported(c[i]))return c[i]}catch(e){}}return ''}
@@ -182,7 +184,7 @@ function startTalk(){
   }
   boot();tickTimer();
   setTimeout(function(){
-    if(!T.on||!navigator.mediaDevices||!navigator.mediaDevices.getUserMedia||!window.MediaRecorder)return;
+    if(!T.on||!alsoRec()||!navigator.mediaDevices||!navigator.mediaDevices.getUserMedia||!window.MediaRecorder)return;
     navigator.mediaDevices.getUserMedia({audio:true}).then(function(stream){
       if(!T.on){stream.getTracks().forEach(function(t){t.stop()});return}
       T.stream=stream;try{T.mr=T.mime?new MediaRecorder(stream,{mimeType:T.mime}):new MediaRecorder(stream);T.mr.ondataavailable=function(e){if(e.data&&e.data.size)T.chunks.push(e.data)};T.mr.start();T.stopMeter=startMeter(stream)}catch(x){T.mr=null}
@@ -198,7 +200,7 @@ function finishTalk(){
     if(T.stream)T.stream.getTracks().forEach(function(t){t.stop()});
     var text=(T.final+' '+T.interim).trim(),secs=(Date.now()-T.start)/1000,url=null;
     if(T.chunks.length){var blob=new Blob(T.chunks,{type:T.mime||'audio/webm'});if(blob.size>1500)url=URL.createObjectURL(blob)}
-    if(!text){V.res={err:T.err?explain(T.err):explain('no-speech'),url:url};render();return}
+    if(!text){V.res={err:(T.err?explain(T.err):explain('no-speech'))+(alsoRec()&&isMobile()?' On many phones the microphone can only be used by one thing at a time. Turn off "Also record my voice" and try again.':''),url:url};render();return}
     var a=analyse(text,secs,T.stamps);
     V.res={text:text,a:a,url:url,note:T.err&&T.err!=='aborted'?explain(T.err):''};saveSession(null);render();
   },350);
@@ -239,7 +241,7 @@ function vSpeak(){
   h+='<div class="card" style="border-color:var(--accent)"><span class="eyebrow">'+(p.star?'Most asked question':'Practice prompt')+'</span><h2>'+esc(p.q)+'</h2>'+(p.hint?'<div class="hint">'+esc(p.hint)+'</div>':'')+'</div>';
   if(!r){
     h+='<div class="card"><label for="lang">Language</label><select id="lang"><option value="en-IN">English (India)</option><option value="en-US">English (US)</option><option value="en-GB">English (UK)</option><option value="hi-IN">Hindi</option><option value="te-IN">Telugu</option></select>'+
-     '<button class="btn big'+(T.on?' rec':'')+'" data-act="'+(T.on?'stop':'start')+'">'+(T.on?'Stop':'Start speaking')+'</button>'+
+     '<label class="row" style="font-weight:600;font-size:15px;margin:0"><input type="checkbox" id="alsoRec" style="width:20px;height:20px"'+(alsoRec()?' checked':'')+(T.on?' disabled':'')+'> Also record my voice</label><p class="small muted">'+(isMobile()?'On most phones, words appear best with this off. Turn it on only to hear yourself back.':'Lets you play your answer back afterwards.')+'</p>'+'<button class="btn big'+(T.on?' rec':'')+'" data-act="'+(T.on?'stop':'start')+'">'+(T.on?'Stop':'Start speaking')+'</button>'+
      (T.on?'<div class="row between"><b id="timer">0:00</b><span class="muted small">'+(p.target?'Aim for about '+p.target+' seconds':'Speak naturally')+'</span></div><div class="meter" aria-hidden="true"><div id="lvl"></div></div>':'')+
      '<div class="box" id="live"><i>'+(T.on?'Listening… speak now.':'Your words appear here as you speak.')+'</i></div>'+
      '<button class="btn quiet" data-act="typed">'+(V.typed?'Hide typing box':'Type instead')+'</button>'+
@@ -253,7 +255,7 @@ function vSpeak(){
      tips(a,p.target).map(function(t){return '<div><span class="pill '+t[0]+'">'+({good:'Good',warn:'Improve',win:'Note'}[t[0]])+'</span> '+esc(t[1])+'</div>'}).join('')+
      '<p class="small muted">Pauses and pace are estimates from when words arrived. Feedback on what you said arrives with the AI step.</p></div>';
     if(r.url)h+='<div class="card"><h3>Hear yourself</h3><audio controls src="'+r.url+'"></audio></div>';
-    else h+='<div class="card"><p class="muted small">No recording was made on this phone while it was listening. That is a phone limit, not a problem with your answer.</p></div>';
+    else h+='<div class="card"><p class="muted small">'+(alsoRec()?'No recording was made while it was listening. That is a phone limit, not a problem with your answer.':'Recording was off, so the phone could listen for your words. Turn on "Also record my voice" to hear yourself, but on some phones the words may then stop appearing.')+'</p></div>';
     h+='<div class="card"><h3>Your words</h3><div class="box" style="font-size:16px;min-height:0">'+esc(r.text)+'</div>'+(r.note?'<p class="small" style="color:var(--warn)">'+esc(r.note)+'</p>':'')+'</div>';
     h+='<div class="card"><label>How confident did you feel? (1 low, 5 high)</label><div class="seg" id="rate">'+[1,2,3,4,5].map(function(n){return '<button data-rate="'+n+'" aria-pressed="'+(r.rating===n)+'">'+n+'</button>'}).join('')+'</div><div class="row wrap"><button class="btn" data-act="again">Practise again</button><button class="btn quiet" data-act="back">Done</button></div></div>';
   }
@@ -350,7 +352,7 @@ document.addEventListener('click',function(e){
   else if(a==='wipe'){if(V.confirmWipe){try{localStorage.removeItem(KEY)}catch(x){}S={profile:null,target:'',sessions:[],days:[],mode:'auto',remind:null,lang:'en-IN'};V.confirmWipe=false;V.onb=false;V.pt=null;V.pg=null;toast('All data deleted');render()}else{V.confirmWipe=true;render()}}
 });
 document.addEventListener('input',function(e){var id=e.target.id;if(id==='pspec'){V.pspec=e.target.value;var b=$('#finishBtn');if(b)b.disabled=!onbValid()}else if(id==='pgs'){V.pgs=e.target.value;var b2=$('#finishBtn');if(b2)b2.disabled=!onbValid()}});
-document.addEventListener('change',function(e){if(e.target.id==='lang'){S.lang=e.target.value;save()}});
+document.addEventListener('change',function(e){if(e.target.id==='lang'){S.lang=e.target.value;save()}if(e.target.id==='alsoRec'){S.alsoRec=e.target.checked;save()}});
 try{matchMedia('(prefers-color-scheme: dark)').addEventListener('change',applyLook)}catch(e){}
 render();
 </script>
