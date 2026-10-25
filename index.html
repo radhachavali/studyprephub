@@ -226,6 +226,15 @@ var STARTERS={
  business:[{id:'b1',q:'Pitch your business or product in 30 seconds.'},{id:'b2',q:'A client says your price is too high. Respond to them.'},{id:'b3',q:'A customer is upset about a missed deadline. What do you say?'}],
  other:[{id:'o1',q:'What kind of work are you looking for, and why does it suit you?'},{id:'o2',q:'Describe something you are proud of and what it shows about you.'},{id:'o3',q:'Tell me about a time you solved a problem under pressure.'}]
 };
+var GENERAL_JOB=[{id:'g1',q:'What are your greatest strengths, and how have they helped you at work?'},{id:'g2',q:'Tell me about a weakness and what you are doing to improve it.'},{id:'g3',q:'Why should we hire you for this role?'},{id:'g4',q:'Describe a time you worked under pressure or a tight deadline.'},{id:'g5',q:'Tell me about a time you led others or took the initiative.'},{id:'g6',q:'Where do you see yourself in five years?'},{id:'g7',q:'Why are you looking for a new role?'},{id:'g8',q:'Do you have any questions for us?'}];
+var GENERAL_BIZ=[{id:'gb1',q:'A prospect has gone quiet after your proposal. What do you say in your follow-up?'},{id:'gb2',q:'Tell me about your best client win and what made it work.'},{id:'gb3',q:'An investor asks about your biggest risk. How do you answer?'},{id:'gb4',q:'A competitor offers the same thing for less. How do you respond?'},{id:'gb5',q:'How do you say no to a client request without losing the relationship?'}];
+function qbank(){var t=S.profile?S.profile.type:'professional';return [TMAY].concat(STARTERS[t]).concat(t==='business'?GENERAL_BIZ:GENERAL_JOB)}
+function nextPrompt(){
+  var q=qbank(),cur=V.prompt?V.prompt.id:null,i=q.map(function(x){return x.id}).indexOf(cur),n=q.length,k,c;
+  for(k=1;k<=n;k++){c=q[(i+k+n)%n];if(c.id!==cur&&!doneToday(c.id))return c}
+  for(k=1;k<=n;k++){c=q[(i+k+n)%n];if(c.id!==cur)return c}
+  return q[0];
+}
 function ptype(){return V.pt&&V.onb?V.pt:(S.profile?S.profile.type:'professional')}
 function label(){var p=S.profile;return p?(p.type==='other'&&p.spec?p.spec:PROFILES[p.type].label):'Who are you?'}
 function todayStarter(){var a=STARTERS[S.profile?S.profile.type:'professional'];return a[dayIdx()%a.length]}
@@ -233,7 +242,7 @@ function todayStarter(){var a=STARTERS[S.profile?S.profile.type:'professional'];
 var SUN='<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></svg>';
 var MOON='<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 14.5A8 8 0 0 1 9.5 4 8 8 0 1 0 20 14.5z"/></svg>';
 function isDark(){var a=document.documentElement.getAttribute('data-theme');if(a)return a==='dark';return !!(window.matchMedia&&matchMedia('(prefers-color-scheme: dark)').matches)}
-var VERSION='v8 · 25 Oct 2026';
+var VERSION='v11 · 25 Oct 2026';
 var PALETTE='<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3a9 9 0 1 0 0 18c1.1 0 1.8-.8 1.8-1.7 0-.5-.2-.9-.5-1.2-.3-.3-.5-.7-.5-1.2 0-.9.8-1.7 1.8-1.7H17a4 4 0 0 0 4-4C21 6.7 17 3 12 3z"/><circle cx="7.5" cy="11" r="1"/><circle cx="10" cy="7" r="1"/><circle cx="14.5" cy="7" r="1"/></svg>';
 var THEMES={
  teal:{n:'Teal',l:['#0F5E63','#E3F0F0','#FFFFFF'],d:['#5BB5B5','#173538','#062022']},
@@ -389,10 +398,10 @@ function saveSession(rating){
 }
 /* ---------- resume and AI helper ---------- */
 var CFG={worker:'https://steady-ai.radhakrishna-chavali.workers.dev'}; /* paste your Cloudflare Worker address between the quotes, e.g. https://steady-ai.yourname.workers.dev */
-var MAXRES=15000,MAXAI=6000;
+var MAXRES=15000,MAXAI=4500;
 var MAMMOTH='https://cdn.jsdelivr.net/npm/mammoth@1.8.0/mammoth.browser.min.js';
 var PDFJS='https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/build/pdf.min.js',PDFWORKER='https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/build/pdf.worker.min.js';
-V.rs={open:false,draft:'',busy:false,msg:''};V.aiRole='';V.aiBusy=false;V.aiErr='';
+V.rs={open:false,draft:'',busy:false,msg:''};V.aiRole='';V.aiBusy=false;V.aiErr='';V.aiExtra='';V.dictOn=false;V.dict=null;
 function loadScript(u){return new Promise(function(res,rej){var el=document.createElement('script');el.src=u;el.onload=res;el.onerror=function(){rej(new Error('load'))};document.head.appendChild(el)})}
 function tidy(t){return String(t||'').replace(/\r/g,'').replace(/ /g,' ').replace(/[ \t]+\n/g,'\n').replace(/\n{3,}/g,'\n\n').replace(/[ \t]{2,}/g,' ').trim()}
 async function pdfToText(buf){
@@ -424,12 +433,13 @@ function coachCall(task,body){
   if(!FB.user)return Promise.reject({code:'signin'});
   return FB.user.getIdToken().then(function(tok){
     body.task=task;
-    return fetch(CFG.worker.replace(/\/$/,'')+'/coach',{method:'POST',headers:{'content-type':'application/json',authorization:'Bearer '+tok},body:JSON.stringify(body)});
-  }).then(function(r){return r.json().catch(function(){return {}}).then(function(j){if(!r.ok)throw {code:j.code||('http'+r.status),remaining:j.remaining};return j})},function(){throw {code:'network'}});
+    var ac=new AbortController(),tm=setTimeout(function(){ac.abort()},45000);
+    return fetch(CFG.worker.replace(/\/$/,'')+'/coach',{method:'POST',signal:ac.signal,headers:{'content-type':'application/json',authorization:'Bearer '+tok},body:JSON.stringify(body)}).then(function(r){clearTimeout(tm);return r},function(e){clearTimeout(tm);throw {code:(e&&e.name==='AbortError')?'timeout':'network'}});
+  }).then(function(r){return r.json().catch(function(){return {}}).then(function(j){if(!r.ok)throw {code:j.code||('http'+r.status),remaining:j.remaining};return j})});
 }
 function aiMsg(e){
   var c=e&&e.code;
-  return c==='limit'?'You have used today\'s AI improvements. They reset tomorrow morning.':c==='busy'?'The free AI is busy right now. Try again in a minute.':c==='signin'?'Sign in to use AI feedback.':c==='network'?'No connection to the server. Check your internet and try again.':c==='auth'?'Your sign-in expired. Sign out and in again.':'Something went wrong. Please try again.';
+  return c==='limit'?'You have used today\'s AI improvements. They reset tomorrow morning.':c==='busy'?'The free AI is busy right now. Try again in a minute.':c==='signin'?'Sign in to use AI feedback.':c==='network'?'No connection to the server. Check your internet and try again.':c==='timeout'?'That took too long. Tap Improve my answer to try again.':c==='auth'?'Your sign-in expired. Sign out and in again.':'Something went wrong ('+(c||'unknown')+'). Please try again.';
 }
 function vResume(){
   var r=S.resume,rs=V.rs,h='<div class="card" style="border-color:var(--accent)"><div class="row between"><b>My resume</b><span class="pill '+(r?'good':'win')+'">'+(r?'Saved':'Optional')+'</span></div>';
@@ -454,6 +464,16 @@ function vBanner(){
   if(S.resume||S.bannerOff)return '';
   return '<div class="card" style="flex-direction:row;align-items:center;background:var(--soft);border-color:transparent"><div style="flex:1"><b>Add your resume</b><div class="small muted">For answers built from your own experience. Optional.</div></div><button class="btn" data-act="rsGo">Add</button><button class="btn ghost" data-act="bannerOff" aria-label="Hide this for now" style="padding:12px 12px">Not now</button></div>';
 }
+function dictate(key){
+  var SRc=window.SpeechRecognition||window.webkitSpeechRecognition;
+  if(!SRc){toast('Voice typing is not available in this browser. Please type.');return}
+  if(V.dict){try{V.dict.stop()}catch(e){}return}
+  var r=new SRc(),got='';r.lang=S.lang||'en-IN';r.interimResults=false;r.continuous=false;
+  r.onresult=function(ev){for(var i=ev.resultIndex;i<ev.results.length;i++)got+=ev.results[i][0].transcript+' '};
+  r.onerror=function(e){var c=e&&e.error;if(c==='not-allowed'||c==='service-not-allowed')toast('Microphone is blocked. Allow it in the browser address bar.');else if(c!=='aborted'&&c!=='no-speech')toast('Voice typing stopped. Please try again.')};
+  r.onend=function(){V.dict=null;V.dictOn=false;if(got.trim()){var t=got.trim();try{t=fixText(t)}catch(e){}V[key]=((V[key]||'')+' '+t).trim().slice(0,1200)}render()};
+  try{V.dict=r;V.dictOn=true;r.start();render()}catch(e){V.dict=null;V.dictOn=false;toast('Could not start the microphone.')}
+}
 function vImprove(){
   var res=V.res,ai=res.ai,h='<div class="card" style="border-color:var(--win)"><div class="row between"><b>Better answer</b><span class="pill win">AI</span></div>';
   if(!CFG.worker)return h+'<p class="muted small">Writes a stronger version of your answer from your resume. It switches on when the Steady server is connected.</p></div>';
@@ -461,7 +481,7 @@ function vImprove(){
   if(!ai){
     h+='<p class="muted small">'+(S.resume?'Steady reads your answer and your resume, then writes a stronger spoken version.':'Steady reads your answer and writes a stronger spoken version.')+'</p>'+(S.resume?'':'<div class="msg wait">Without your resume the answer uses only what you said. <button class="linkbtn" data-act="rsGoLink" style="padding:0;min-height:0;color:inherit">Add your resume</button> (optional) for a more personal version.</div>')+'<label for="aiRole">Role or situation (optional)</label><input type="text" id="aiRole" maxlength="80" placeholder="Senior Program Manager interview" value="'+esc(V.aiRole)+'">'+
       (V.aiErr?'<div class="msg no">'+esc(V.aiErr)+'</div>':'')+
-      '<button class="btn block" data-act="improve"'+(V.aiBusy?' disabled':'')+'>'+(V.aiBusy?'Writing…':'Improve my answer')+'</button>';
+      '<button class="btn block" data-act="improve"'+(V.aiBusy?' disabled':'')+'>'+(V.aiBusy?'Writing… this takes a few seconds':'Improve my answer')+'</button>';
     return h+'</div>';
   }
   function list(t,a){return a&&a.length?'<div><b class="small">'+t+'</b><ul class="small" style="margin:4px 0 0;padding-left:18px">'+a.map(function(x){return '<li>'+esc(x)+'</li>'}).join('')+'</ul></div>':''}
@@ -472,6 +492,10 @@ function vImprove(){
     (ai.fill_in&&ai.fill_in.length?'<div class="msg wait"><b>Fill in before you say it.</b> Replace the [brackets] with real details.'+list('',ai.fill_in)+'</div>':'')+
     (!res.noResume&&ai.not_in_resume&&ai.not_in_resume.length?'<div class="msg no"><b>Not found in your resume.</b> Say these only if they are true.'+list('',ai.not_in_resume)+'</div>':'')+
     list('What worked',ai.worked)+list('To improve',ai.improve)+
+    '<div class="card" style="background:var(--bg);padding:12px"><b>Not quite right?</b><p class="small muted">Tell Steady what is missing: a project, a number, a tool, or how you want it to sound. Then it rewrites the answer with your details.</p>'+
+    '<label for="aiExtra" class="small">What should be added?</label><textarea id="aiExtra" rows="3" maxlength="1200" placeholder="For example: I cut sprint carry-over from 30 percent to 10 percent in six months.">'+esc(V.aiExtra)+'</textarea>'+
+    (V.aiErr?'<div class="msg no">'+esc(V.aiErr)+'</div>':'')+
+    '<div class="row wrap"><button class="btn quiet" data-act="dictExtra" aria-pressed="'+V.dictOn+'">'+(V.dictOn?'Listening… tap to stop':'Speak it')+'</button><button class="btn" data-act="improveAgain"'+((V.aiBusy||!(V.aiExtra||'').trim())?' disabled':'')+'>'+(V.aiBusy?'Rewriting… a few seconds':'Improve again')+'</button></div></div>'+
     '<p class="small muted">'+(typeof ai.remaining==='number'?ai.remaining+' improvement'+(ai.remaining===1?'':'s')+' left today. ':'')+'Read it aloud a few times, in your own words.</p>';
   return h+'</div>';
 }
@@ -501,7 +525,7 @@ function vToday(){
   h+='<div class="card"><span class="eyebrow">Coming next</span><ul class="muted small" style="margin:0;padding-left:18px"><li>Role-specific questions, with or without your resume</li><li>AI interviewer that listens and gives feedback on what you said</li></ul></div>';
   return h;
 }
-function promptById(id){if(id==='tmay')return TMAY;var all=[].concat.apply([],Object.keys(STARTERS).map(function(k){return STARTERS[k]}));var f=all.filter(function(x){return x.id===id})[0];return f||todayStarter()}
+function promptById(id){if(id==='tmay')return TMAY;var all=[].concat.apply([],Object.keys(STARTERS).map(function(k){return STARTERS[k]})).concat(GENERAL_JOB,GENERAL_BIZ);var f=all.filter(function(x){return x.id===id})[0];return f||todayStarter()}
 function vSpeak(){
   var p=V.prompt,r=V.res,h='<button class="btn quiet" data-act="back" style="align-self:flex-start">Back</button>';
   h+='<div class="card" style="border-color:var(--accent)"><span class="eyebrow">'+(p.star?'Most asked question':'Practice prompt')+'</span><h2>'+esc(p.q)+'</h2>'+(p.hint?'<div class="hint">'+esc(p.hint)+'</div>':'')+'</div>';
@@ -510,7 +534,7 @@ function vSpeak(){
      '<label class="row" style="font-weight:600;font-size:15px;margin:0"><input type="checkbox" id="alsoRec" style="width:20px;height:20px"'+(alsoRec()?' checked':'')+(T.on?' disabled':'')+'> Also record my voice</label><p class="small muted">'+(isMobile()?'On most phones, words appear best with this off. Turn it on only to hear yourself back.':'Lets you play your answer back afterwards.')+'</p>'+'<button class="btn big'+(T.on?' rec':'')+'" data-act="'+(T.on?'stop':'start')+'">'+(T.on?'Stop':'Start speaking')+'</button>'+
      (T.on?'<div class="row between"><b id="timer">0:00</b><span class="muted small">'+(p.target?'Aim for about '+p.target+' seconds':'Speak naturally')+'</span></div><div class="meter" aria-hidden="true"><div id="lvl"></div></div>':'')+
      '<div class="box" id="live"><i>'+(T.on?'Listening… speak now.':'Your words appear here as you speak.')+'</i></div>'+
-     '<button class="btn quiet" data-act="typed">'+(V.typed?'Hide typing box':'Type instead')+'</button>'+
+     (T.on?'':'<button class="btn quiet" data-act="next">Skip to next question</button>')+'<button class="btn quiet" data-act="typed">'+(V.typed?'Hide typing box':'Type instead')+'</button>'+
      (V.typed?'<textarea id="typed" rows="5" placeholder="Type your answer here"></textarea><button class="btn block" data-act="analyseTyped">See word and filler analysis</button>':'')+'</div>';
   }else if(r.err){
     h+='<div class="card"><div class="msg no"><b>Did not work.</b> '+esc(r.err)+'</div>'+(r.url?'<audio controls src="'+r.url+'"></audio>':'')+'<button class="btn block" data-act="again">Try again</button><button class="btn quiet" data-act="typed2">Type your answer instead</button></div>';
@@ -524,6 +548,8 @@ function vSpeak(){
     else h+='<div class="card"><p class="muted small">'+(alsoRec()?'No recording was made while it was listening. That is a phone limit, not a problem with your answer.':'Recording was off, so the phone could listen for your words. Turn on "Also record my voice" to hear yourself, but on some phones the words may then stop appearing.')+'</p></div>';
     h+='<div class="card"><h3>Your words</h3><div class="box" id="resText" contenteditable="true" role="textbox" aria-label="Your words, tap to fix" style="font-size:16px;min-height:0">'+esc(r.text)+'</div><p class="small muted">Wrong word? Tap the text, fix it, then save. Steady remembers the fix.</p><button class="btn quiet" data-act="saveFix">Save corrections</button>'+(r.note?'<p class="small" style="color:var(--warn)">'+esc(r.note)+'</p>':'')+'</div>';
     h+=vImprove();
+    var nq=nextPrompt();
+    h+='<div class="card" style="border-color:var(--accent)"><span class="eyebrow">Next question</span><b>'+esc(nq.q)+'</b><button class="btn" data-act="next">Next question</button></div>';
     h+='<div class="card"><label>How confident did you feel? (1 low, 5 high)</label><div class="seg" id="rate">'+[1,2,3,4,5].map(function(n){return '<button data-rate="'+n+'" aria-pressed="'+(r.rating===n)+'">'+n+'</button>'}).join('')+'</div><div class="row wrap"><button class="btn" data-act="again">Practise again</button><button class="btn quiet" data-act="back">Done</button></div></div>';
   }
   return h;
@@ -596,7 +622,7 @@ function render(){
 }
 /* ---------- events ---------- */
 function openSwitch(){V.onb=true;if(S.profile){V.pt=S.profile.type;V.pspec=S.profile.spec||'';var g=PROFILES[V.pt].goals;if(g.indexOf(S.profile.goal)>=0){V.pg=S.profile.goal;V.pgs=''}else{V.pg='Other';V.pgs=S.profile.goal||''}}render();$('#main').scrollTop=0}
-function goPrompt(p){V.prompt=p;V.view='speak';V.res=null;V.typed=false;V.tab='practice';render();$('#main').scrollTop=0}
+function goPrompt(p){V.prompt=p;V.view='speak';V.res=null;V.typed=false;V.tab='practice';V.aiBusy=false;V.aiErr='';V.aiExtra='';render();$('#main').scrollTop=0}
 document.addEventListener('click',function(e){
   var hb=e.target.closest('#profBtn,#modeBtn,#colBtn');
   if(hb){if(hb.id==='colBtn'){var ks=Object.keys(THEMES),ni=(ks.indexOf(S.theme||'teal')+1)%ks.length;S.theme=ks[ni];save();applyLook();render();toast(THEMES[S.theme].n+' colour');return}if(hb.id==='profBtn'){if(gate()){if(FB.ready)signIn()}else openSwitch()}else{S.mode=isDark()?'light':'dark';save();applyLook()}return}
@@ -614,6 +640,7 @@ document.addEventListener('click',function(e){
   else if(a==='cancelOnb'){V.onb=false;render()}
   else if(a==='switch')openSwitch();
   else if(a==='back'){if(T.on)return;if(V.res&&V.res.a&&!V.res.saved)saveSession(V.res.rating);V.view=null;V.res=null;render()}
+  else if(a==='next'){if(T.on)return;if(V.res&&V.res.a&&!V.res.saved)saveSession(V.res.rating);goPrompt(nextPrompt())}
   else if(a==='start')startTalk();
   else if(a==='stop')stopTalk();
   else if(a==='again'){if(V.res&&V.res.a&&!V.res.saved)saveSession(V.res.rating);V.res=null;render()}
@@ -632,18 +659,24 @@ document.addEventListener('click',function(e){
   else if(a==='bannerOff'){S.bannerOff=true;save();render()}
   else if(a==='rsGo'){V.tab='jobs';V.view=null;V.rs.open=true;V.rs.draft='';render();$('#main').scrollTop=0}
   else if(a==='copyAns'){var ta=V.res&&V.res.ai?V.res.ai.better_answer:'';if(navigator.clipboard&&ta)navigator.clipboard.writeText(ta).then(function(){toast('Copied')},function(){toast('Could not copy')});else toast('Could not copy')}
+  else if(a==='dictExtra'){dictate('aiExtra')}
+  else if(a==='improveAgain'){
+    var ex=(V.aiExtra||'').trim();if(V.aiBusy||!V.res||!V.res.ai||!ex)return;var r2=V.res,prev=r2.ai.better_answer;V.aiBusy=true;V.aiErr='';render();
+    coachCall('improve',{question:V.prompt.q,answer:r2.text,resume:S.resume?S.resume.text.slice(0,MAXAI):'',role:V.aiRole||'',vocab:(S.vocab||[]).slice(0,40),target:V.prompt.target||0,extra:ex,previous:prev})
+      .then(function(j){r2.ai=j;if(V.res===r2)V.aiExtra=''}).catch(function(err){if(V.res===r2)V.aiErr=aiMsg(err)}).then(function(){if(V.res===r2)V.aiBusy=false;render()});
+  }
   else if(a==='improve'){
     if(V.aiBusy||!V.res||!V.res.text)return;var rr=V.res;V.aiBusy=true;V.aiErr='';render();
     rr.noResume=!S.resume;
     coachCall('improve',{question:V.prompt.q,answer:rr.text,resume:S.resume?S.resume.text.slice(0,MAXAI):'',role:V.aiRole||'',vocab:(S.vocab||[]).slice(0,40),target:V.prompt.target||0})
-      .then(function(j){rr.ai=j}).catch(function(err){V.aiErr=aiMsg(err)}).then(function(){V.aiBusy=false;render()});
+      .then(function(j){rr.ai=j}).catch(function(err){if(V.res===rr)V.aiErr=aiMsg(err)}).then(function(){if(V.res===rr)V.aiBusy=false;render()});
   }
   else if(a==='signin')signIn();
   else if(a==='guest'){S.guest=true;save();render()}
   else if(a==='signout')signOutNow();
   else if(a==='wipe'){if(V.confirmWipe){if(FB.ok&&FB.user){try{cloudRef().delete()}catch(x){}}try{localStorage.removeItem(KEY)}catch(x){}S={profile:null,target:'',sessions:[],days:[],mode:'auto',remind:null,lang:'en-IN',vocab:[],fixes:{}};V.confirmWipe=false;V.onb=false;V.pt=null;V.pg=null;toast('All data deleted');render()}else{V.confirmWipe=true;render()}}
 });
-document.addEventListener('input',function(e){var id=e.target.id;if(id==='pspec'){V.pspec=e.target.value;var b=$('#finishBtn');if(b)b.disabled=!onbValid()}else if(id==='pgs'){V.pgs=e.target.value;var b2=$('#finishBtn');if(b2)b2.disabled=!onbValid()}else if(id==='aiRole'){V.aiRole=e.target.value}else if(id==='rsText'){V.rs.draft=e.target.value}});
+document.addEventListener('input',function(e){var id=e.target.id;if(id==='pspec'){V.pspec=e.target.value;var b=$('#finishBtn');if(b)b.disabled=!onbValid()}else if(id==='pgs'){V.pgs=e.target.value;var b2=$('#finishBtn');if(b2)b2.disabled=!onbValid()}else if(id==='aiRole'){V.aiRole=e.target.value}else if(id==='aiExtra'){V.aiExtra=e.target.value;var ib=document.querySelector('[data-act=improveAgain]');if(ib)ib.disabled=V.aiBusy||!e.target.value.trim()}else if(id==='rsText'){V.rs.draft=e.target.value}});
 document.addEventListener('change',function(e){if(e.target.id==='lang'){S.lang=e.target.value;save()}if(e.target.id==='alsoRec'){S.alsoRec=e.target.checked;save()}});
 document.addEventListener('change',function(e){
   if(e.target.id!=='rsFile')return;
