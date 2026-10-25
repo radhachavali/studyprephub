@@ -118,13 +118,13 @@ function mean(a){return a.length?a.reduce(function(x,y){return x+y},0)/a.length:
 function dayIdx(){return Math.floor((Date.now()+19800000)/864e5)}
 function toast(m){var t=$('#toast');t.textContent=m;t.classList.add('on');clearTimeout(toast.h);toast.h=setTimeout(function(){t.classList.remove('on')},2600)}
 /* ---------- data (saved on this device) ---------- */
-var S={profile:null,target:'',sessions:[],days:[],mode:'auto',remind:null,lang:'en-IN',vocab:[],fixes:{},guest:false};
+var S={profile:null,target:'',sessions:[],days:[],mode:'auto',remind:null,lang:'en-IN',vocab:[],fixes:{},guest:false,resume:null};
 try{var raw=localStorage.getItem(KEY);if(raw){var o=JSON.parse(raw);for(var k in o)S[k]=o[k]}}catch(e){}
 function save(){try{localStorage.setItem(KEY,JSON.stringify(S))}catch(e){toast('Could not save on this device.')}cloudSave()}
 /* ---------- account and cloud saving (Firebase) ---------- */
 var firebaseConfig={apiKey:"AIzaSyDpvS27o9i8NHYbCGB-YuLEyhDYa94bVdQ",authDomain:"studyprephub.firebaseapp.com",projectId:"studyprephub",storageBucket:"studyprephub.firebasestorage.app",messagingSenderId:"578977296879",appId:"1:578977296879:web:44eebdb0623f0e533a461a"};
 var FB={ok:false,ready:false,user:null,auth:null,db:null,timer:null,saving:false,again:false,loaded:false,status:''};
-var CLOUD_KEYS=['profile','target','sessions','days','mode','remind','lang','vocab','fixes','alsoRec'];
+var CLOUD_KEYS=['profile','target','sessions','days','mode','remind','lang','vocab','fixes','alsoRec','resume'];
 function gate(){return FB.ok&&(!FB.ready||(!FB.user&&!S.guest))}
 function cloudRef(){return FB.db.doc('users/'+FB.user.uid+'/data/app')}
 function cloudSave(){
@@ -347,6 +347,87 @@ function saveSession(rating){
   S.sessions.unshift({id:Date.now(),n:dayIdx(),pid:p.id,q:p.q,text:r.text,secs:r.a.secs,words:r.a.words,wpm:r.a.wpm,fill:r.a.fill.length,fillRate:+r.a.fillRate.toFixed(1),longest:+r.a.longest.toFixed(1),rating:rating||null});
   S.sessions=S.sessions.slice(0,200);if(S.days.indexOf(dayIdx())<0)S.days.push(dayIdx());r.saved=true;r.sid=S.sessions[0].id;save();
 }
+/* ---------- resume and AI helper ---------- */
+var CFG={worker:''}; /* paste your Cloudflare Worker address between the quotes, e.g. https://steady-ai.yourname.workers.dev */
+var MAXRES=15000,MAXAI=6000;
+var MAMMOTH='https://cdn.jsdelivr.net/npm/mammoth@1.8.0/mammoth.browser.min.js';
+var PDFJS='https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/build/pdf.min.js',PDFWORKER='https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/build/pdf.worker.min.js';
+V.rs={open:false,draft:'',busy:false,msg:''};V.aiRole='';V.aiBusy=false;V.aiErr='';
+function loadScript(u){return new Promise(function(res,rej){var el=document.createElement('script');el.src=u;el.onload=res;el.onerror=function(){rej(new Error('load'))};document.head.appendChild(el)})}
+function tidy(t){return String(t||'').replace(/\r/g,'').replace(/ /g,' ').replace(/[ \t]+\n/g,'\n').replace(/\n{3,}/g,'\n\n').replace(/[ \t]{2,}/g,' ').trim()}
+async function pdfToText(buf){
+  await loadScript(PDFJS);
+  var lib=window.pdfjsLib;
+  if(!lib.GlobalWorkerOptions.workerSrc){var w=await fetch(PDFWORKER).then(function(r){return r.text()});lib.GlobalWorkerOptions.workerSrc=URL.createObjectURL(new Blob([w],{type:'text/javascript'}))}
+  var doc=await lib.getDocument({data:buf}).promise,out='';
+  for(var i=1;i<=Math.min(doc.numPages,6);i++){
+    var pg=await doc.getPage(i),c=await pg.getTextContent();
+    c.items.forEach(function(it){out+=it.str+(it.hasEOL?'\n':' ')});out+='\n';
+  }
+  return out;
+}
+async function fileToText(f){
+  var n=(f.name||'').toLowerCase();
+  if(f.size>8*1024*1024)throw new Error('big');
+  if(/\.(txt|md|text)$/.test(n)||f.type==='text/plain')return await f.text();
+  var buf=await f.arrayBuffer();
+  if(/\.docx$/.test(n)){await loadScript(MAMMOTH);var r=await window.mammoth.extractRawText({arrayBuffer:buf});return r.value}
+  if(/\.pdf$/.test(n)||f.type==='application/pdf')return await pdfToText(buf);
+  throw new Error('type');
+}
+function readErr(e){
+  var m=e&&e.message;
+  return m==='big'?'That file is too large. Use one under 8 MB, or paste the text.':m==='type'?'Steady reads Word (.docx), PDF and text files. Save your resume as .docx or PDF, or paste the text.':m==='empty'?'No text found. It may be a scanned picture. Paste the text instead.':'Could not read that file. Paste your resume text instead.';
+}
+function coachCall(task,body){
+  if(!CFG.worker)return Promise.reject({code:'noserver'});
+  if(!FB.user)return Promise.reject({code:'signin'});
+  return FB.user.getIdToken().then(function(tok){
+    body.task=task;
+    return fetch(CFG.worker.replace(/\/$/,'')+'/coach',{method:'POST',headers:{'content-type':'application/json',authorization:'Bearer '+tok},body:JSON.stringify(body)});
+  }).then(function(r){return r.json().catch(function(){return {}}).then(function(j){if(!r.ok)throw {code:j.code||('http'+r.status),remaining:j.remaining};return j})},function(){throw {code:'network'}});
+}
+function aiMsg(e){
+  var c=e&&e.code;
+  return c==='limit'?'You have used today\'s AI improvements. They reset tomorrow morning.':c==='busy'?'The free AI is busy right now. Try again in a minute.':c==='signin'?'Sign in to use AI feedback.':c==='network'?'No connection to the server. Check your internet and try again.':c==='auth'?'Your sign-in expired. Sign out and in again.':'Something went wrong. Please try again.';
+}
+function vResume(){
+  var r=S.resume,rs=V.rs,h='<div class="card" style="border-color:var(--accent)"><div class="row between"><b>My resume</b><span class="pill '+(r?'good':'warn')+'">'+(r?'Saved':'Add this first')+'</span></div>';
+  if(rs.busy)return h+'<p class="muted small">'+esc(rs.msg||'Reading…')+'</p></div>';
+  if(r&&!rs.open){
+    h+='<p class="muted small">'+r.text.split(/\s+/).length+' words, saved '+new Date(r.at).toLocaleDateString()+'. Steady uses it to write answers from your real experience.</p>'+
+     '<details><summary class="small"><b>Preview</b></summary><div class="box" style="font-size:13px;min-height:0;max-height:220px;overflow:auto;white-space:pre-wrap">'+esc(r.text.slice(0,3000))+(r.text.length>3000?'…':'')+'</div></details>'+
+     '<div class="row wrap"><button class="btn quiet" data-act="rsEdit">Replace or edit</button><button class="btn ghost" data-act="rsRemove">Remove</button></div>';
+  }else{
+    h+='<p class="muted small">Upload your resume or paste it. Steady reads it on your device. It is saved to your account and sent to the AI only when you tap an AI button.</p>'+
+     '<div class="row wrap"><label class="btn quiet" for="rsFile" style="cursor:pointer">Upload Word, PDF or text</label><input type="file" id="rsFile" accept=".docx,.pdf,.txt,.md,application/pdf,text/plain" style="position:absolute;opacity:0;width:1px;height:1px"></div>'+
+     (rs.msg?'<div class="msg wait">'+esc(rs.msg)+'</div>':'')+
+     '<label for="rsText">Or paste your resume text</label><textarea id="rsText" rows="9" placeholder="Paste your resume here">'+esc(rs.draft||(r&&rs.open?r.text:''))+'</textarea>'+
+     '<div class="row wrap"><button class="btn" data-act="rsSave">Save resume</button>'+(r?'<button class="btn quiet" data-act="rsCancel">Cancel</button>':'')+'</div>';
+  }
+  return h+'</div>';
+}
+function vImprove(){
+  var res=V.res,ai=res.ai,h='<div class="card" style="border-color:var(--win)"><div class="row between"><b>Better answer</b><span class="pill win">AI</span></div>';
+  if(!CFG.worker)return h+'<p class="muted small">Writes a stronger version of your answer from your resume. It switches on when the Steady server is connected.</p></div>';
+  if(!FB.user)return h+'<p class="muted small">Sign in to get a better answer written from your resume.</p><button class="btn quiet" data-act="signin">Sign in with Google</button></div>';
+  if(!S.resume)return h+'<div class="msg wait"><b>Add your resume first.</b> Steady writes a stronger answer from your answer and your resume, and uses only facts that are really there.</div><button class="btn block" data-act="rsGo">Add my resume</button></div>';
+  if(!ai){
+    h+='<p class="muted small">Steady reads your answer and your resume, then writes a stronger spoken version.</p><label for="aiRole">Role or situation (optional)</label><input type="text" id="aiRole" maxlength="80" placeholder="Senior Program Manager interview" value="'+esc(V.aiRole)+'">'+
+      (V.aiErr?'<div class="msg no">'+esc(V.aiErr)+'</div>':'')+
+      '<button class="btn block" data-act="improve"'+(V.aiBusy?' disabled':'')+'>'+(V.aiBusy?'Writing…':'Improve my answer')+'</button>';
+    return h+'</div>';
+  }
+  function list(t,a){return a&&a.length?'<div><b class="small">'+t+'</b><ul class="small" style="margin:4px 0 0;padding-left:18px">'+a.map(function(x){return '<li>'+esc(x)+'</li>'}).join('')+'</ul></div>':''}
+  h+='<div><span class="eyebrow">Your answer</span><div class="box" style="font-size:14px;min-height:0;white-space:pre-wrap">'+esc(res.text)+'</div></div>'+
+    '<div><span class="eyebrow" style="color:var(--good)">A stronger answer</span><div class="box" style="font-size:16px;min-height:0;white-space:pre-wrap;border-style:solid;border-color:var(--good)">'+esc(ai.better_answer)+'</div></div>'+
+    '<button class="btn quiet" data-act="copyAns">Copy stronger answer</button>'+
+    (ai.fill_in&&ai.fill_in.length?'<div class="msg wait"><b>Fill in before you say it.</b> Replace the [brackets] with real details.'+list('',ai.fill_in)+'</div>':'')+
+    (ai.not_in_resume&&ai.not_in_resume.length?'<div class="msg no"><b>Not found in your resume.</b> Say these only if they are true.'+list('',ai.not_in_resume)+'</div>':'')+
+    list('What worked',ai.worked)+list('To improve',ai.improve)+
+    '<p class="small muted">'+(typeof ai.remaining==='number'?ai.remaining+' improvement'+(ai.remaining===1?'':'s')+' left today. ':'')+'Read it aloud a few times, in your own words.</p>';
+  return h+'</div>';
+}
 /* ---------- views ---------- */
 var ICON={today:'<path d="M12 3v3M12 18v3M3 12h3M18 12h3M5.6 5.6l2.1 2.1M16.3 16.3l2.1 2.1M18.4 5.6l-2.1 2.1M7.7 16.3l-2.1 2.1"/><circle cx="12" cy="12" r="3.5"/>',practice:'<rect x="9" y="3" width="6" height="12" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3"/>',progress:'<path d="M4 19V5M4 19h16M8 15l3-4 3 2 5-6"/>',jobs:'<rect x="3" y="7" width="18" height="13" rx="2"/><path d="M9 7V5a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2v2M3 13h18"/>',talk:'<path d="M21 12a8 8 0 0 1-11.6 7.1L4 20l1-4.6A8 8 0 1 1 21 12z"/>'};
 var TABS=[['today','Today'],['jobs','Interview'],['talk','Talk'],['practice','Speak'],['progress','Progress']];
@@ -394,13 +475,14 @@ function vSpeak(){
     if(r.url)h+='<div class="card"><h3>Hear yourself</h3><audio controls src="'+r.url+'"></audio></div>';
     else h+='<div class="card"><p class="muted small">'+(alsoRec()?'No recording was made while it was listening. That is a phone limit, not a problem with your answer.':'Recording was off, so the phone could listen for your words. Turn on "Also record my voice" to hear yourself, but on some phones the words may then stop appearing.')+'</p></div>';
     h+='<div class="card"><h3>Your words</h3><div class="box" id="resText" contenteditable="true" role="textbox" aria-label="Your words, tap to fix" style="font-size:16px;min-height:0">'+esc(r.text)+'</div><p class="small muted">Wrong word? Tap the text, fix it, then save. Steady remembers the fix.</p><button class="btn quiet" data-act="saveFix">Save corrections</button>'+(r.note?'<p class="small" style="color:var(--warn)">'+esc(r.note)+'</p>':'')+'</div>';
+    h+=vImprove();
     h+='<div class="card"><label>How confident did you feel? (1 low, 5 high)</label><div class="seg" id="rate">'+[1,2,3,4,5].map(function(n){return '<button data-rate="'+n+'" aria-pressed="'+(r.rating===n)+'">'+n+'</button>'}).join('')+'</div><div class="row wrap"><button class="btn" data-act="again">Practise again</button><button class="btn quiet" data-act="back">Done</button></div></div>';
   }
   return h;
 }
 function soon(step,title,text){return '<div class="card" style="opacity:.92"><div class="row between"><b>'+title+'</b><span class="pill win">Step '+step+'</span></div><p class="muted small">'+text+'</p></div>'}
 function vJobs(){
-  return '<div><span class="eyebrow">Interview</span><h2>Get ready for the interview</h2><p class="muted small">These need the AI server, so they arrive in the next steps. Until then, practise out loud in the Speak tab.</p></div>'+
+  return vResume()+'<div><span class="eyebrow">Interview</span><h2>Get ready for the interview</h2><p class="muted small">Everything below uses your resume. It is sent to the AI only when you tap an AI button. Until these arrive, practise out loud in the Speak tab.</p></div>'+
    soon(3,'Tell me about yourself','Answer a few short questions and get a tailored 30 and 60 second answer, then rehearse it with an interviewer.')+
    soon(3,'Search by job role','Type a role and get technical, situational and business questions, with how to answer each.')+
    soon(5,'Match my resume','Two buttons: prepare interview questions from your resume, or analyse and build an ATS-friendly resume as a Word file.');
@@ -490,13 +572,31 @@ document.addEventListener('click',function(e){
   else if(a==='own'){var q=($('#own').value||'').trim();if(q.length<8){toast('Type the question first.');return}goPrompt({id:'own',q:q,hint:'',target:0})}
   else if(a==='saveVocab'){var vv=($('#vocab').value||'').split(/[,\n]/).map(function(x){return x.trim()}).filter(Boolean),seen={};S.vocab=vv.filter(function(x){var k=x.toLowerCase();if(seen[k])return false;seen[k]=1;return true}).slice(0,60);save();toast('Saved '+S.vocab.length+' word'+(S.vocab.length===1?'':'s'))}
   else if(a==='saveFix'){var el=$('#resText');if(!el||!V.res||!V.res.a)return;var ed=el.innerText.replace(/\s+/g,' ').trim();if(!ed||ed===V.res.text){toast('No changes to save.');return}var nfix=learnFixes(V.res.text,ed);V.res.text=ed;var na=analyse(ed,V.res.a.secs,[]);na.longest=V.res.a.longest;na.longPauses=V.res.a.longPauses;V.res.a=na;var s0=S.sessions.filter(function(s){return s.id===V.res.sid})[0];if(s0){s0.text=ed;s0.words=na.words;s0.wpm=na.wpm;s0.fill=na.fill.length;s0.fillRate=+na.fillRate.toFixed(1)}save();toast(nfix?'Saved. Steady will fix '+nfix+' word'+(nfix>1?'s':'')+' like this next time.':'Text updated.');render()}
+  else if(a==='rsEdit'){V.rs.open=true;V.rs.draft=S.resume?S.resume.text:'';V.rs.msg='';render()}
+  else if(a==='rsCancel'){V.rs.open=false;V.rs.draft='';V.rs.msg='';render()}
+  else if(a==='rsRemove'){S.resume=null;V.rs={open:false,draft:'',busy:false,msg:''};save();render();toast('Resume removed')}
+  else if(a==='rsSave'){var dt=tidy(($('#rsText')?$('#rsText').value:V.rs.draft)||'');if(dt.length<80){toast('Paste or upload your full resume first.');return}S.resume={text:dt.slice(0,MAXRES),at:Date.now()};V.rs={open:false,draft:'',busy:false,msg:''};save();render();toast('Resume saved')}
+  else if(a==='rsGo'){V.tab='jobs';V.view=null;V.rs.open=true;V.rs.draft='';render();$('#main').scrollTop=0}
+  else if(a==='copyAns'){var ta=V.res&&V.res.ai?V.res.ai.better_answer:'';if(navigator.clipboard&&ta)navigator.clipboard.writeText(ta).then(function(){toast('Copied')},function(){toast('Could not copy')});else toast('Could not copy')}
+  else if(a==='improve'){
+    if(V.aiBusy||!V.res||!V.res.text)return;var rr=V.res;V.aiBusy=true;V.aiErr='';render();
+    coachCall('improve',{question:V.prompt.q,answer:rr.text,resume:S.resume.text.slice(0,MAXAI),role:V.aiRole||'',vocab:(S.vocab||[]).slice(0,40),target:V.prompt.target||0})
+      .then(function(j){rr.ai=j}).catch(function(err){V.aiErr=aiMsg(err)}).then(function(){V.aiBusy=false;render()});
+  }
   else if(a==='signin')signIn();
   else if(a==='guest'){S.guest=true;save();render()}
   else if(a==='signout')signOutNow();
   else if(a==='wipe'){if(V.confirmWipe){if(FB.ok&&FB.user){try{cloudRef().delete()}catch(x){}}try{localStorage.removeItem(KEY)}catch(x){}S={profile:null,target:'',sessions:[],days:[],mode:'auto',remind:null,lang:'en-IN',vocab:[],fixes:{}};V.confirmWipe=false;V.onb=false;V.pt=null;V.pg=null;toast('All data deleted');render()}else{V.confirmWipe=true;render()}}
 });
-document.addEventListener('input',function(e){var id=e.target.id;if(id==='pspec'){V.pspec=e.target.value;var b=$('#finishBtn');if(b)b.disabled=!onbValid()}else if(id==='pgs'){V.pgs=e.target.value;var b2=$('#finishBtn');if(b2)b2.disabled=!onbValid()}});
+document.addEventListener('input',function(e){var id=e.target.id;if(id==='pspec'){V.pspec=e.target.value;var b=$('#finishBtn');if(b)b.disabled=!onbValid()}else if(id==='pgs'){V.pgs=e.target.value;var b2=$('#finishBtn');if(b2)b2.disabled=!onbValid()}else if(id==='aiRole'){V.aiRole=e.target.value}else if(id==='rsText'){V.rs.draft=e.target.value}});
 document.addEventListener('change',function(e){if(e.target.id==='lang'){S.lang=e.target.value;save()}if(e.target.id==='alsoRec'){S.alsoRec=e.target.checked;save()}});
+document.addEventListener('change',function(e){
+  if(e.target.id!=='rsFile')return;
+  var f=e.target.files&&e.target.files[0];e.target.value='';if(!f)return;
+  V.rs.busy=true;V.rs.msg='Reading '+f.name+'…';render();
+  fileToText(f).then(function(t){t=tidy(t);if(t.length<80)throw new Error('empty');V.rs.draft=t.slice(0,MAXRES);V.rs.open=true;V.rs.msg='Check the text below, fix anything odd, then tap Save resume.'})
+    .catch(function(err){V.rs.open=true;V.rs.msg=readErr(err)}).then(function(){V.rs.busy=false;render()});
+});
 try{matchMedia('(prefers-color-scheme: dark)').addEventListener('change',applyLook)}catch(e){}
 initFirebase();
 render();
