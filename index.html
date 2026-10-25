@@ -1074,7 +1074,7 @@ function render(){
 /* ---------- events ---------- */
 function openSwitch(){V.onb=true;if(S.profile){V.pt=S.profile.type;V.pspec=S.profile.spec||'';var g=PROFILES[V.pt].goals;if(g.indexOf(S.profile.goal)>=0){V.pg=S.profile.goal;V.pgs=''}else{V.pg='Other';V.pgs=S.profile.goal||''}}render();$('#main').scrollTop=0}
 function goPrompt(p,force){
-  if(!force&&!S.resume&&!S.resumeNever&&S.resumeAskDay!==dayIdx()&&!V.modal){S.resumeAskDay=dayIdx();save();V.pendingPrompt=p;V.modal='resume';V.modalNew=true;V.rs={open:true,draft:'',busy:false,msg:''};render();return}
+  if(!force&&!S.resume&&!S.resumeNever&&!S.resumeAsked&&!V.modal){S.resumeAsked=true;S.resumeAskDay=dayIdx();save();V.pendingPrompt=p;V.modal='resume';V.modalNew=true;V.rs={open:true,draft:'',busy:false,msg:''};render();return}
   V.prompt=p;V.view='speak';V.res=null;V.typed=false;V.tab='practice';V.aiBusy=false;V.aiErr='';V.aiExtra='';render();$('#main').scrollTop=0}
 document.addEventListener('click',function(e){
   var hb=e.target.closest('#profBtn,#modeBtn,#colBtn');
@@ -1159,13 +1159,13 @@ document.addEventListener('click',function(e){
   else if(a==='dictExtra'){dictate('aiExtra')}
   else if(a==='improveAgain'){
     var ex=(V.aiExtra||'').trim();if(V.aiBusy||!V.res||!V.res.ai||!ex)return;var r2=V.res,prev=r2.ai.better_answer;V.aiBusy=true;V.aiErr='';render();
-    coachCall('improve',{question:V.prompt.q,answer:r2.text,resume:S.resume?S.resume.text.slice(0,MAXAI):'',role:V.aiRole||S.targetRole||'',intro:V.prompt.id==='tmay'||/about yourself|walk me through|your background/i.test(V.prompt.q),vocab:(S.vocab||[]).slice(0,40),target:V.prompt.target||0,extra:ex,previous:prev})
+    coachCall('improve',{question:V.prompt.q,answer:r2.text,resume:S.resume?S.resume.text.slice(0,MAXAI):'',role:V.aiRole||S.targetRole||'',intro:V.prompt.id==='tmay'||/about yourself|walk me through (your )?(resume|cv|background|career|journey|experience)\b|your background|introduce yourself/i.test(V.prompt.q),vocab:(S.vocab||[]).slice(0,40),target:V.prompt.target||0,extra:ex,previous:prev})
       .then(function(j){r2.ai=j;if(V.res===r2)V.aiExtra=''}).catch(function(err){if(V.res===r2)V.aiErr=aiMsg(err)}).then(function(){if(V.res===r2)V.aiBusy=false;render()});
   }
   else if(a==='improve'){
     if(V.aiBusy||!V.res||!V.res.text)return;var rr=V.res;V.aiBusy=true;V.aiErr='';render();
     rr.noResume=!S.resume;
-    coachCall('improve',{question:V.prompt.q,answer:rr.text,resume:S.resume?S.resume.text.slice(0,MAXAI):'',role:V.aiRole||S.targetRole||'',intro:V.prompt.id==='tmay'||/about yourself|walk me through|your background/i.test(V.prompt.q),vocab:(S.vocab||[]).slice(0,40),target:V.prompt.target||0})
+    coachCall('improve',{question:V.prompt.q,answer:rr.text,resume:S.resume?S.resume.text.slice(0,MAXAI):'',role:V.aiRole||S.targetRole||'',intro:V.prompt.id==='tmay'||/about yourself|walk me through (your )?(resume|cv|background|career|journey|experience)\b|your background|introduce yourself/i.test(V.prompt.q),vocab:(S.vocab||[]).slice(0,40),target:V.prompt.target||0})
       .then(function(j){rr.ai=j}).catch(function(err){if(V.res===rr)V.aiErr=aiMsg(err)}).then(function(){if(V.res===rr)V.aiBusy=false;render()});
   }
   else if(a==='signin')signIn();
