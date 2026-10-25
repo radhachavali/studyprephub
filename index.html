@@ -163,21 +163,33 @@ function tips(a,target){
 var SR=window.SpeechRecognition||window.webkitSpeechRecognition;
 function isMobile(){return /Android|iPhone|iPad|iPod/i.test(navigator.userAgent||'')}
 function alsoRec(){return S.alsoRec!==undefined?S.alsoRec:!isMobile()}
-var T={on:false,final:'',interim:'',start:0,stamps:[],err:'',stop:false,sr:null,mr:null,chunks:[],stream:null,stopMeter:null,mime:''};
+var T={parts:[],on:false,final:'',interim:'',start:0,stamps:[],err:'',stop:false,sr:null,mr:null,chunks:[],stream:null,stopMeter:null,mime:''};
 function explain(c){return ({'not-allowed':'The microphone is blocked. Tap the lock icon next to the web address, open Permissions, set Microphone to Allow, then reload.','service-not-allowed':'Speech recognition is blocked for this browser. Use Chrome and check that Google voice typing is on in your phone settings.','audio-capture':'No microphone found, or another app is using it. Close other apps that use the microphone.','network':'Speech recognition needs an internet connection.','no-speech':'It did not hear anything. Speak closer to the microphone.','language-not-supported':'This language is not supported. Try English (India) or English (US).'})[c]||('Error: '+c)}
 function pickMime(){var c=['audio/webm;codecs=opus','audio/webm','audio/mp4','audio/ogg'];for(var i=0;i<c.length;i++){try{if(window.MediaRecorder&&MediaRecorder.isTypeSupported(c[i]))return c[i]}catch(e){}}return ''}
 var ac=null;
 function startMeter(stream){try{ac=ac||new (window.AudioContext||window.webkitAudioContext)();var src=ac.createMediaStreamSource(stream),an=ac.createAnalyser();an.fftSize=512;src.connect(an);var d=new Uint8Array(an.fftSize),on=true,el=$('#lvl');(function tick(){if(!on)return;an.getByteTimeDomainData(d);var m=0;for(var i=0;i<d.length;i++)m=Math.max(m,Math.abs(d[i]-128));if(el)el.style.width=Math.min(100,m/128*160)+'%';requestAnimationFrame(tick)})();return function(){on=false;if(el)el.style.width='0'}}catch(e){return function(){}}}
 function liveBox(){var b=$('#live');if(b)b.innerHTML=(esc(T.final)+(T.interim?' <i>'+esc(T.interim)+'</i>':''))||'<i>Listening… speak now.</i>'}
 function tickTimer(){if(!T.on)return;var t=$('#timer');if(t){var s=Math.round((Date.now()-T.start)/1000);t.textContent=Math.floor(s/60)+':'+('0'+s%60).slice(-2)}setTimeout(tickTimer,500)}
+/* Android Chrome sends growing, repeated 'final' results (hi / hi my / hi my name ...). Replace a repeat with its longer version instead of appending it. */
+function addFinal(txt){
+  txt=String(txt||'').trim();if(!txt)return;
+  var p=T.parts,a=txt.toLowerCase();
+  for(var i=p.length-1;i>=0;i--){
+    var b=p[i].toLowerCase();
+    if(a===b)return;
+    if(a.indexOf(b)===0){p[i]=txt;return}
+    if(b.indexOf(a)===0&&a.length>=3)return;
+  }
+  p.push(txt);
+}
 function startTalk(){
   if(T.on)return;
-  T={on:true,final:'',interim:'',start:Date.now(),stamps:[],err:'',stop:false,sr:null,mr:null,chunks:[],stream:null,stopMeter:null,mime:pickMime()};
+  T={parts:[],on:true,final:'',interim:'',start:Date.now(),stamps:[],err:'',stop:false,sr:null,mr:null,chunks:[],stream:null,stopMeter:null,mime:pickMime()};
   V.res=null;render();
   if(!SR){T.on=false;V.typed=true;toast('Voice typing is not supported in this browser. Use Chrome, or type your answer.');render();return}
   function boot(){
     var r=new SR();T.sr=r;r.lang=S.lang;r.continuous=true;r.interimResults=true;
-    r.onresult=function(e){T.stamps.push(Date.now());var f='',i2='';for(var i=e.resultIndex;i<e.results.length;i++){var x=e.results[i];if(x.isFinal)f+=x[0].transcript+' ';else i2+=x[0].transcript}T.final+=f;T.interim=i2;liveBox()};
+    r.onresult=function(e){T.stamps.push(Date.now());var i2='';for(var i=e.resultIndex;i<e.results.length;i++){var x=e.results[i];if(x.isFinal)addFinal(x[0].transcript);else i2+=x[0].transcript}T.final=T.parts.join(' ')+' ';T.interim=i2;liveBox()};
     r.onerror=function(e){T.err=e.error};
     r.onend=function(){if(T.on&&!T.stop&&!T.err){try{boot();return}catch(x){}}finishTalk()};
     try{r.start()}catch(x){T.err='start-failed';finishTalk()}
