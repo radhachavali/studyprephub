@@ -35,6 +35,16 @@ nav button[aria-current="page"]{color:var(--accent)}
 .btn.quiet{background:var(--soft);color:var(--accent)}.btn.ghost{background:transparent;color:var(--accent);border:1.5px solid var(--accent)}
 .btn.block{width:100%}.btn:disabled{opacity:.45;cursor:not-allowed}
 .btn.big{font-size:20px;min-height:68px;border-radius:18px}.btn.rec{background:var(--warn);color:#fff}
+.signin{width:100%;max-width:440px;margin:18px auto 0;display:flex;flex-direction:column;gap:18px;text-align:center;align-items:center}
+.signin .mark{width:68px;height:68px;border-radius:20px;background:var(--accent);display:grid;place-items:center;box-shadow:0 8px 24px rgba(15,94,99,.25)}
+.signin h1{font-size:30px}
+.perks{width:100%;display:flex;flex-direction:column;gap:10px;text-align:left}
+.perk{display:flex;gap:12px;align-items:flex-start;background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:12px 14px}
+.perk .pd{flex:none;width:26px;height:26px;border-radius:50%;background:var(--good-soft);color:var(--good);display:grid;place-items:center;font-weight:800;font-size:14px}
+.gbtn{width:100%;display:flex;align-items:center;justify-content:center;gap:12px;min-height:54px;border-radius:14px;border:1.5px solid #dadce0;background:#fff;color:#1f1f1f;font-weight:700;font-size:17px;box-shadow:0 1px 3px rgba(0,0,0,.12)}
+.gbtn:hover{background:#f8f9fa}.gbtn:disabled{opacity:.7;cursor:wait}.gbtn svg{width:22px;height:22px;flex:none}
+.linkbtn{background:none;border:0;color:var(--accent);font-weight:700;text-decoration:underline;padding:10px;min-height:44px}
+.spin{width:18px;height:18px;border-radius:50%;border:3px solid #dadce0;border-top-color:#4285F4;animation:sp .8s linear infinite}@keyframes sp{to{transform:rotate(360deg)}}
 .pill{display:inline-flex;align-items:center;border-radius:999px;padding:3px 10px;font-size:12px;font-weight:700;background:var(--soft);color:var(--accent);border:0}
 button.pill{cursor:pointer;padding:7px 12px;font-size:13px}
 .pill.good{background:var(--good-soft);color:var(--good)}.pill.warn{background:var(--warn-soft);color:var(--warn)}.pill.win{background:var(--win-soft);color:var(--win)}
@@ -162,18 +172,22 @@ function initFirebase(){
   try{
     firebase.initializeApp(firebaseConfig);FB.auth=firebase.auth();FB.db=firebase.firestore();FB.ok=true;
     FB.auth.getRedirectResult().catch(function(e){if(e&&e.code!=='auth/no-auth-event')toast('Sign-in did not finish. Please try again.')});
-    FB.auth.onAuthStateChanged(function(u){FB.user=u;FB.ready=true;if(u)loadCloud();else{FB.loaded=false;render()}});
+    FB.auth.onAuthStateChanged(function(u){FB.user=u;FB.ready=true;V.signing=false;if(u)loadCloud();else{FB.loaded=false;render()}});
   }catch(e){FB.ok=false;FB.status='error'}
   setTimeout(function(){if(FB.ok&&!FB.ready){FB.ready=true;render()}},6000);
 }
 function signIn(){
   if(!FB.ok){toast('Sign-in is not available right now.');return}
-  var p=new firebase.auth.GoogleAuthProvider();
-  FB.auth.signInWithPopup(p).catch(function(e){
+  if(V.signing)return;
+  V.signing=true;if(gate())render();
+  var p=new firebase.auth.GoogleAuthProvider();p.setCustomParameters({prompt:'select_account'});
+  function stop(){V.signing=false;render()}
+  FB.auth.signInWithPopup(p).then(function(){V.signing=false}).catch(function(e){
     var c=e&&e.code;
     if(c==='auth/popup-blocked'||c==='auth/operation-not-supported-in-this-environment'){FB.auth.signInWithRedirect(p);return}
+    stop();
     if(c==='auth/popup-closed-by-user'||c==='auth/cancelled-popup-request')return;
-    toast(c==='auth/unauthorized-domain'?'This web address is not allowed in Firebase yet.':'Could not sign in. Please try again.');
+    toast(c==='auth/unauthorized-domain'?'This web address is not allowed in Firebase yet.':c==='auth/network-request-failed'?'No internet connection. Try again.':'Could not sign in. Please try again.');
   });
 }
 function signOutNow(){
@@ -182,9 +196,16 @@ function signOutNow(){
   FB.auth.signOut().then(function(){try{localStorage.removeItem(KEY)}catch(e){}S={profile:null,target:'',sessions:[],days:[],mode:S.mode,remind:null,lang:'en-IN',vocab:[],fixes:{},guest:false};FB.loaded=false;V.onb=false;V.view=null;V.tab='today';render()});
 }
 function vSignin(){
-  if(FB.ok&&!FB.ready)return '<div class="card" style="margin-top:40px"><b>Loading…</b></div>';
-  return '<div style="margin-top:24px"><span class="eyebrow">Welcome to Steady</span><h1>Practise out loud. Get better answers.</h1><p class="muted">Sign in to keep your practice, your resume and your progress safe, and to use Steady on any phone or computer.</p></div>'+
-   '<div class="card"><button class="btn big" data-act="signin">Continue with Google</button><p class="small muted">We only use your name and email to save your progress. Your answers are private to you.</p><button class="btn quiet" data-act="guest">Use without signing in</button><p class="small muted">Without signing in, progress stays on this device only and AI features will not be available.</p></div>';
+  var MARK='<div class="mark" aria-hidden="true"><svg viewBox="0 0 24 24" width="38" height="38" fill="none" stroke="#fff" stroke-width="2.4" stroke-linecap="round"><path d="M4 14h3l3-8 4 12 3-7h3"/></svg></div>',G='<svg viewBox="0 0 48 48" aria-hidden="true"><path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"/><path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z"/><path fill="#FBBC05" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z"/><path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.15 1.45-4.92 2.3-8.16 2.3-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"/></svg>';
+  if(FB.ok&&!FB.ready)return '<div class="signin" style="margin-top:60px">'+MARK+'<p class="muted">Getting ready…</p></div>';
+  var perks=[['Practise out loud','Speak, see your pace and filler words, and improve every day.'],['Answers from your own resume','Save your resume once. Steady writes stronger answers using only your real experience.'],['Safe on every device','Your progress and resume follow you to any phone or computer.']];
+  return '<div class="signin">'+MARK+'<div><h1>Speak with confidence</h1><p class="muted" style="margin-top:8px">Sign in to start practising. It takes one tap.</p></div>'+
+   '<div class="perks">'+perks.map(function(x){return '<div class="perk"><span class="pd" aria-hidden="true">✓</span><div><b>'+x[0]+'</b><div class="muted small">'+x[1]+'</div></div></div>'}).join('')+'</div>'+
+   '<button class="gbtn" data-act="signin"'+(V.signing?' disabled':'')+'>'+(V.signing?'<span class="spin" aria-hidden="true"></span>Opening Google…':G+'Continue with Google')+'</button>'+
+   (V.signing?'<p class="small muted">A Google window should open. If nothing appears, allow pop-ups for this site and tap again.</p>':'')+
+   '<p class="small muted">We only use your name and email to save your progress. Your answers and resume are private to you.</p>'+
+   '<button class="linkbtn" data-act="guest">Try it without signing in</button>'+
+   '<p class="small muted" style="margin-top:-10px">Without signing in, everything stays on this device and AI features are off.</p></div>';
 }
 var V={tab:'today',view:null,pt:null,pg:null,pspec:'',pgs:'',onb:false,prompt:null,res:null,typed:false};
 /* ---------- profiles and practice prompts ---------- */
