@@ -493,7 +493,7 @@ function dictate(key){
   try{V.dict=r;V.dictOn=true;r.start();render()}catch(e){V.dict=null;V.dictOn=false;toast('Could not start the microphone.')}
 }
 /* ---------- match my resume to a job ---------- */
-var ROLES_SEED=['Scrum Master','Senior Scrum Master','Agile Coach','Project Manager','Senior Project Manager','Program Manager','Senior Program Manager','Technical Program Manager','Delivery Manager','Product Manager','Business Analyst','Software Engineer','Senior Software Engineer','QA Engineer','Data Analyst','Data Scientist','DevOps Engineer','Engineering Manager','Marketing Manager','Sales Executive','HR Manager','Operations Manager','Customer Success Manager','UX Designer','Finance Analyst'];
+var ROLES_SEED=['Scrum Master','Senior Scrum Master','Agile Coach','Project Manager','Senior Project Manager','Program Manager','Senior Program Manager','Technical Program Manager','Delivery Manager','Product Manager','Business Analyst','Software Engineer','Senior Software Engineer','QA Engineer','Data Analyst','Data Scientist','DevOps Engineer','Engineering Manager','Marketing Manager','Sales Executive','HR Manager','Operations Manager','Customer Success Manager','UX Designer','Finance Analyst','Forward Deployed Engineer','Solutions Engineer','Solutions Architect','Site Reliability Engineer','Backend Engineer','Frontend Engineer','Full Stack Developer','Machine Learning Engineer','AI Engineer','Data Engineer','Cloud Engineer','Security Engineer','Mobile Developer','Technical Account Manager','Customer Support Engineer','Business Development Manager','Account Manager','Product Owner','Product Designer','Project Coordinator','Operations Analyst','Supply Chain Manager','Retail Store Manager','Chartered Accountant','Financial Analyst','Content Writer','Digital Marketing Manager','Recruiter','Teacher','Nurse','Civil Engineer','Mechanical Engineer'];
 var MAXMATCH=7000,DOCXJS='https://cdn.jsdelivr.net/npm/docx@8.5.0/build/index.umd.js';
 V.jm={role:S.targetRole||'',jd:'',busy:'',err:''};
 function hash(t){var h=5381,i;t=String(t||'');for(i=0;i<t.length;i++)h=((h<<5)+h+t.charCodeAt(i))|0;return (h>>>0).toString(36)}
@@ -673,7 +673,7 @@ function workerCall(path,body,ms){
 }
 function rrMsg(e){
   var c=e&&e.code;
-  return c==='limit'?'You have used today\'s 3 new role searches. Roles other people already searched open instantly. Try again tomorrow, or use the built-in topics below.':c==='signin'?'Sign in to research a role.':c==='timeout'?'The search took too long. Tap Research this role to try again.':c==='busy'?'The free AI is busy right now. Try again in a minute.':c==='network'?'No connection to the server. Check your internet and try again.':'We could not research this role right now ('+(c||'error')+'). The built-in topics below still work.';
+  return c==='notfound'?'The server does not have the new worker.js yet. Paste the new worker.js in Cloudflare and Deploy.':c==='auth'?'Your sign-in expired. Sign out and in again.':c==='limit'?'You have used today\'s 3 new role searches. Roles other people already searched open instantly. Try again tomorrow, or use the built-in topics below.':c==='signin'?'Sign in to research a role.':c==='timeout'?'The search took too long. Tap Research this role to try again.':c==='busy'?'The free AI is busy right now. Try again in a minute.':c==='network'?'No connection to the server. Check your internet and try again.':'We could not research this role right now ('+(c||'error')+'). The built-in topics below still work.';
 }
 function rrRole(){var el=$('#plRole')||$('#lrRole');var v=(el&&el.value||'').trim();return v||(V.setup&&V.setup.role)||curRole()||''}
 function rrRun(role){
@@ -689,7 +689,7 @@ function rrRun(role){
     if(j&&j.valid){
       S.research=S.research||{};j.at=j.at||Date.now();S.research[rKey(role)]=j;
       var ks=Object.keys(S.research).sort(function(a,b){return (S.research[b].at||0)-(S.research[a].at||0)});ks.slice(6).forEach(function(k){delete S.research[k]});
-      S.targetRole=role;learnRole(role);if(V.setup)V.setup.role=role;rr.refine=false;save();render();toast(j.cached?'Found it instantly':'Role researched');
+      S.targetRole=role;learnRole(role);if(V.setup)V.setup.role=role;V.lrole=role;V.learnEdit=false;V.learnOpen=undefined;rr.refine=false;save();render();toast(j.cached?'Found it instantly':'Role researched');
     }else{rr.err=(j&&j.reason)||'We could not find reliable pages about this role.';rr.invalid=true;render()}
   }).catch(function(e){clearTimeout(t1);clearTimeout(t2);rr.busy=false;rr.err=rrMsg(e);render()});
 }
@@ -709,8 +709,8 @@ function vResearch(role){
      '<details><summary class="small"><b>Sources</b></summary><div class="row wrap" style="gap:8px;margin-top:8px">'+d.sources.map(function(x){return ext(x.url,x.domain+(x.video?' (video)':''))}).join('')+'</div></details>'+
      '<div class="row wrap" style="gap:8px"><button class="btn quiet" data-act="rrRefineToggle" style="min-height:44px">Not relevant? Refine</button>'+ext(g,'Search Google for this role')+'</div></div>';
   }else{
-    h+='<div class="card"><b>Research this role</b><p class="small muted" style="margin:0">Steady searches the web for what this role is and how its interviews work, keeps only the relevant pages, then organises them into topics, questions and links. Takes about 20 seconds. Roles others have searched open instantly.</p>'+
-     '<div class="row wrap" style="gap:8px"><button class="btn" data-act="rrGo" style="min-height:48px">Research this role</button>'+ext(g,'Search Google for this role')+'</div>'+
+    h+='<div class="card"><b>Search the web for this role</b><p class="small muted" style="margin:0">Steady searches the web for what this role is and how its interviews work, keeps only the relevant pages, then organises them into topics, questions and links. Takes about 20 seconds. Roles others have searched open instantly.</p>'+
+     '<div class="row wrap" style="gap:8px"><button class="btn" data-act="rrGo" style="min-height:48px">Search this role</button>'+ext(g,'Search Google for this role')+'</div>'+
      '<button class="btn ghost" data-act="rrRefineToggle" style="align-self:flex-start;min-height:44px;font-size:13px">'+(rr.refine?'Hide details':'Add company, level or country')+'</button></div>';
   }
   if(rr.err)h+='<div class="msg">'+esc(rr.err)+'</div>';
@@ -803,7 +803,7 @@ function dayPlan(p,d){
   return out;
 }
 var CRACKS=[['7 days before',['Match your resume to the job and fix the gaps','Practise Tell me about yourself until it feels natural','Write 5 STAR stories: result, conflict, failure, leadership, influence']],['3 days before',['Research the company: products, customers, news, leaders','Prepare 5 questions to ask the interviewer','Do one full mock interview out loud']],['The day before',['Re-read your resume and the job description','Test camera, microphone, internet and the meeting link','Sleep early and keep the next morning calm']],['Interview day',['Arrive or log in 10 minutes early','Pause before each answer. Aim for 60 to 90 seconds','Ask your questions and thank everyone']]];
-function curRole(){return (S.plan&&S.plan.role)||S.targetRole||''}
+function curRole(){return S.targetRole||(S.plan&&S.plan.role)||''}
 function planCur(){var p=S.plan;if(!p)return 1;return Math.max(1,Math.min(p.days,dayIdx()-p.start+1))}
 function planDayShown(){var p=S.plan;return V.planDay?Math.max(1,Math.min(p.days,V.planDay)):planCur()}
 function dayDoneCount(p,d){var dp=dayPlan(p,d),n=0;dp.tasks.forEach(function(t,i){if(S.planDone&&S.planDone[d+'.'+i])n++});return [n,dp.tasks.length]}
@@ -812,9 +812,20 @@ function segBar(seg){
   var items=[['plan','Plan'],['learn','Learn'],['search','Search']];
   return '<div class="segbar" role="tablist">'+items.map(function(x){return '<button role="tab" aria-selected="'+(seg===x[0])+'" data-seg="'+x[0]+'">'+x[1]+'</button>'}).join('')+'</div>';
 }
+function sugList(v){
+  v=String(v||'').toLowerCase().trim();var all=allRoles(),out;
+  if(!v)return all.slice(0,6);
+  out=all.filter(function(r){var l=r.toLowerCase();return l.indexOf(v)===0}).concat(all.filter(function(r){var l=r.toLowerCase();return l.indexOf(v)!==0&&l.split(/\s+/).some(function(w){return w.indexOf(v)===0})})).concat(all.filter(function(r){var l=r.toLowerCase();return l.indexOf(v)>0&&!l.split(/\s+/).some(function(w){return w.indexOf(v)===0})}));
+  return out.slice(0,6);
+}
+function sugHtml(id,v){
+  var l=sugList(v);if(!l.length||(l.length===1&&l[0].toLowerCase()===String(v||'').toLowerCase().trim()))return '';
+  return '<div class="sugbox" role="listbox" style="border:1px solid var(--line);border-radius:12px;overflow:hidden;background:var(--surface)">'+l.map(function(r){return '<button type="button" class="sug" role="option" data-sug="'+esc(r)+'" data-for="'+id+'" style="display:block;width:100%;text-align:left;min-height:46px;padding:0 14px;border:0;border-bottom:1px solid var(--line);background:transparent;font-size:15px">'+esc(r)+'</button>'}).join('')+'</div>';
+}
+function showSug(id){var b=document.getElementById('sug_'+id),i=document.getElementById(id);if(b&&i)b.innerHTML=sugHtml(id,i.value)}
 function roleChooser(id,val,note){
   var chips=['Senior Program Manager','Program Manager','Senior Scrum Master','Product Manager','Software Engineer','Data Analyst'];
-  return '<label for="'+id+'">Role you are preparing for</label><input type="text" id="'+id+'" list="roleList2" maxlength="80" autocomplete="off" placeholder="Start typing, for example Senior Program Manager" value="'+esc(val)+'"><datalist id="roleList2">'+allRoles().map(function(r){return '<option value="'+esc(r)+'"></option>'}).join('')+'</datalist><div class="row wrap" style="gap:8px">'+chips.map(function(c){return '<button class="pill pickrole" data-role="'+esc(c)+'" data-for="'+id+'" style="min-height:44px;padding:0 14px;font-size:14px">'+esc(c)+'</button>'}).join('')+'</div>'+(note?'<p class="small muted">'+note+'</p>':'');
+  return '<label for="'+id+'">Role you are preparing for</label><input type="text" id="'+id+'" list="roleList2" maxlength="80" autocomplete="off" placeholder="Type a role, for example Forward Deployed Engineer" value="'+esc(val)+'" enterkeyhint="search" style="min-height:52px;font-size:17px"><div id="sug_'+id+'"></div><div class="row wrap" style="gap:8px">'+chips.map(function(c){return '<button class="pill pickrole" data-role="'+esc(c)+'" data-for="'+id+'" style="min-height:44px;padding:0 14px;font-size:14px">'+esc(c)+'</button>'}).join('')+'</div>'+(note?'<p class="small muted">'+note+'</p>':'');
 }
 function vSetup(){
   var st=V.setup||(V.setup={role:curRole(),days:60,mins:'1 hour'});
@@ -864,7 +875,7 @@ function vCrack(){
 function vLearn(){
   var role=curRole(),h='';
   if(!role||V.learnEdit){
-    h+='<div><span class="eyebrow">Learn</span><h1>Choose your role</h1><p class="muted small" style="margin-top:6px">Steady shows the topics for that role, with videos, reading and practice tests.</p></div><div class="card">'+roleChooser('lrRole',role,null)+'<button class="btn" data-act="learnSet">Show topics</button></div>';
+    h+='<div><span class="eyebrow">Learn</span><h1>Choose your role</h1><p class="muted small" style="margin-top:6px">Steady shows the topics for that role, with videos, reading and practice tests.</p></div><div class="card">'+roleChooser('lrRole',V.lrole||role,null)+'<button class="btn" data-act="learnSet">Show built-in topics</button></div>'+vResearch(V.lrole||role);
     return h;
   }
   var f=fam(role),ctx=f.ctx||role,open=V.learnOpen===undefined?f.groups[0][0]:V.learnOpen,known=famKey(role)!=='generic',rd=rData(role);
@@ -1088,7 +1099,8 @@ document.addEventListener('click',function(e){
   if(d.idea){V.query=d.idea;render();return}
   if(d.iq){var rl=curRole(),ql2=rl?qlist(fam(rl)):[],it2=ql2[+d.iq];if(it2){V.aiRole=rl;goPrompt({id:'iq'+hash(it2[1]),q:it2[1],hint:it2[2]||'',target:0})}return}
   if(d.radd){S.added=(S.added||[]).filter(function(x){return x!==d.radd});save();render();return}
-  if(d.role){var inp=document.getElementById(d['for']);if(inp){inp.value=d.role;inp.dispatchEvent(new Event('input',{bubbles:true}))}return}
+  if(d.sug){var si=document.getElementById(d['for']);if(si){si.value=d.sug;si.dispatchEvent(new Event('input',{bubbles:true}));var sb2=document.getElementById('sug_'+d['for']);if(sb2)sb2.innerHTML='';rrRun(d.sug)}return}
+  if(d.role){var inp=document.getElementById(d['for']);if(inp){inp.value=d.role;inp.dispatchEvent(new Event('input',{bubbles:true}));var sb3=document.getElementById('sug_'+d['for']);if(sb3)sb3.innerHTML='';rrRun(d.role)}return}
   if(d.theme){S.theme=d.theme;save();applyLook();render();return}
   if(d.jq){var pr=d.jq.split('.'),it=S.jobQ&&S.jobQ.groups[+pr[0]]&&S.jobQ.groups[+pr[0]].items[+pr[1]];if(it){V.aiRole=S.jobQ.role||V.aiRole;goPrompt({id:'jq'+hash(it.q),q:it.q,hint:it.tip,target:0})}return}
   var a=d.act;if(!a)return;
@@ -1171,7 +1183,9 @@ document.addEventListener('change',function(e){
   fileToText(f).then(function(t){t=tidy(t);if(t.length<80)throw new Error('empty');V.rs.draft=t.slice(0,MAXRES);V.rs.open=true;V.rs.msg='Check the text below, fix anything odd, then tap Save resume.'})
     .catch(function(err){V.rs.open=true;V.rs.msg=readErr(err)}).then(function(){V.rs.busy=false;render()});
 });
-document.addEventListener('keydown',function(e){if(e.key==='Escape'&&V.modal)closeModal()});
+document.addEventListener('keydown',function(e){if(e.key==='Escape'&&V.modal)closeModal();if(e.key==='Enter'&&(e.target.id==='plRole'||e.target.id==='lrRole')){e.preventDefault();var sb=document.getElementById('sug_'+e.target.id);if(sb)sb.innerHTML='';rrRun(e.target.value.trim())}});
+document.addEventListener('focusin',function(e){var id=e.target.id;if(id==='plRole'||id==='lrRole')showSug(id)});
+document.addEventListener('input',function(e){var id=e.target.id;if(id==='plRole'||id==='lrRole')showSug(id)});
 try{matchMedia('(prefers-color-scheme: dark)').addEventListener('change',applyLook)}catch(e){}
 initFirebase();
 render();
