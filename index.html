@@ -106,6 +106,9 @@ details summary{cursor:pointer;list-style:none}details summary::-webkit-details-
   <nav id="tabs" aria-label="Main"></nav>
 </div>
 <div class="toast" id="toast" role="status"></div>
+<script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore-compat.js"></script>
 <script>
 'use strict';
 var KEY='steady.v1';
@@ -115,9 +118,74 @@ function mean(a){return a.length?a.reduce(function(x,y){return x+y},0)/a.length:
 function dayIdx(){return Math.floor((Date.now()+19800000)/864e5)}
 function toast(m){var t=$('#toast');t.textContent=m;t.classList.add('on');clearTimeout(toast.h);toast.h=setTimeout(function(){t.classList.remove('on')},2600)}
 /* ---------- data (saved on this device) ---------- */
-var S={profile:null,target:'',sessions:[],days:[],mode:'auto',remind:null,lang:'en-IN',vocab:[],fixes:{}};
+var S={profile:null,target:'',sessions:[],days:[],mode:'auto',remind:null,lang:'en-IN',vocab:[],fixes:{},guest:false};
 try{var raw=localStorage.getItem(KEY);if(raw){var o=JSON.parse(raw);for(var k in o)S[k]=o[k]}}catch(e){}
-function save(){try{localStorage.setItem(KEY,JSON.stringify(S))}catch(e){toast('Could not save on this device.')}}
+function save(){try{localStorage.setItem(KEY,JSON.stringify(S))}catch(e){toast('Could not save on this device.')}cloudSave()}
+/* ---------- account and cloud saving (Firebase) ---------- */
+var firebaseConfig={apiKey:"AIzaSyDpvS27o9i8NHYbCGB-YuLEyhDYa94bVdQ",authDomain:"studyprephub.firebaseapp.com",projectId:"studyprephub",storageBucket:"studyprephub.firebasestorage.app",messagingSenderId:"578977296879",appId:"1:578977296879:web:44eebdb0623f0e533a461a"};
+var FB={ok:false,ready:false,user:null,auth:null,db:null,timer:null,saving:false,again:false,loaded:false,status:''};
+var CLOUD_KEYS=['profile','target','sessions','days','mode','remind','lang','vocab','fixes','alsoRec'];
+function gate(){return FB.ok&&(!FB.ready||(!FB.user&&!S.guest))}
+function cloudRef(){return FB.db.doc('users/'+FB.user.uid+'/data/app')}
+function cloudSave(){
+  if(!FB.ok||!FB.user||!FB.loaded)return;
+  clearTimeout(FB.timer);FB.timer=setTimeout(cloudFlush,1500);
+}
+function cloudFlush(){
+  if(!FB.ok||!FB.user||!FB.loaded)return;
+  if(FB.saving){FB.again=true;return}
+  FB.saving=true;FB.again=false;FB.status='saving';
+  var o={updatedAt:Date.now()};CLOUD_KEYS.forEach(function(k){if(S[k]!==undefined)o[k]=S[k]});
+  o=JSON.parse(JSON.stringify(o));o.sessions=(o.sessions||[]).slice(0,100);o.days=(o.days||[]).slice(-200);
+  cloudRef().set(o).then(function(){FB.status='saved'}).catch(function(e){FB.status='error'}).then(function(){FB.saving=false;if(FB.again)cloudFlush();});
+}
+function softRefresh(){var m=$('#main');if(m&&V.tab==='progress'&&!V.view&&!V.onb)render()}
+function mergeCloud(d){
+  CLOUD_KEYS.forEach(function(k){if(d[k]===undefined)return;
+    if(k==='sessions'){var seen={},all=(d.sessions||[]).concat(S.sessions||[]).filter(function(s){if(seen[s.id])return false;seen[s.id]=1;return true});all.sort(function(a,b){return b.id-a.id});S.sessions=all.slice(0,200)}
+    else if(k==='days'){var u={};(d.days||[]).concat(S.days||[]).forEach(function(x){u[x]=1});S.days=Object.keys(u).map(Number).sort(function(a,b){return a-b})}
+    else if(k==='fixes'){var f={};for(var a in (S.fixes||{}))f[a]=S.fixes[a];for(var b in d.fixes)f[b]=d.fixes[b];S.fixes=f}
+    else if(k==='vocab'){var v={};(d.vocab||[]).concat(S.vocab||[]).forEach(function(x){v[x]=1});S.vocab=Object.keys(v).slice(0,60)}
+    else S[k]=d[k];
+  });
+}
+function loadCloud(){
+  FB.loaded=false;
+  cloudRef().get().then(function(snap){
+    if(snap.exists)mergeCloud(snap.data());
+    FB.loaded=true;S.guest=false;try{localStorage.setItem(KEY,JSON.stringify(S))}catch(e){}
+    cloudFlush();render();
+  }).catch(function(){FB.status='error';FB.loaded=false;toast('Could not reach your account. Working on this device for now.');render()});
+}
+function initFirebase(){
+  if(!window.firebase){FB.status='offline';return}
+  try{
+    firebase.initializeApp(firebaseConfig);FB.auth=firebase.auth();FB.db=firebase.firestore();FB.ok=true;
+    FB.auth.getRedirectResult().catch(function(e){if(e&&e.code!=='auth/no-auth-event')toast('Sign-in did not finish. Please try again.')});
+    FB.auth.onAuthStateChanged(function(u){FB.user=u;FB.ready=true;if(u)loadCloud();else{FB.loaded=false;render()}});
+  }catch(e){FB.ok=false;FB.status='error'}
+  setTimeout(function(){if(FB.ok&&!FB.ready){FB.ready=true;render()}},6000);
+}
+function signIn(){
+  if(!FB.ok){toast('Sign-in is not available right now.');return}
+  var p=new firebase.auth.GoogleAuthProvider();
+  FB.auth.signInWithPopup(p).catch(function(e){
+    var c=e&&e.code;
+    if(c==='auth/popup-blocked'||c==='auth/operation-not-supported-in-this-environment'){FB.auth.signInWithRedirect(p);return}
+    if(c==='auth/popup-closed-by-user'||c==='auth/cancelled-popup-request')return;
+    toast(c==='auth/unauthorized-domain'?'This web address is not allowed in Firebase yet.':'Could not sign in. Please try again.');
+  });
+}
+function signOutNow(){
+  if(!FB.ok)return;
+  try{clearTimeout(FB.timer)}catch(e){}
+  FB.auth.signOut().then(function(){try{localStorage.removeItem(KEY)}catch(e){}S={profile:null,target:'',sessions:[],days:[],mode:S.mode,remind:null,lang:'en-IN',vocab:[],fixes:{},guest:false};FB.loaded=false;V.onb=false;V.view=null;V.tab='today';render()});
+}
+function vSignin(){
+  if(FB.ok&&!FB.ready)return '<div class="card" style="margin-top:40px"><b>Loading…</b></div>';
+  return '<div style="margin-top:24px"><span class="eyebrow">Welcome to Steady</span><h1>Practise out loud. Get better answers.</h1><p class="muted">Sign in to keep your practice, your resume and your progress safe, and to use Steady on any phone or computer.</p></div>'+
+   '<div class="card"><button class="btn big" data-act="signin">Continue with Google</button><p class="small muted">We only use your name and email to save your progress. Your answers are private to you.</p><button class="btn quiet" data-act="guest">Use without signing in</button><p class="small muted">Without signing in, progress stays on this device only and AI features will not be available.</p></div>';
+}
 var V={tab:'today',view:null,pt:null,pg:null,pspec:'',pgs:'',onb:false,prompt:null,res:null,typed:false};
 /* ---------- profiles and practice prompts ---------- */
 var PROFILES={
@@ -362,7 +430,7 @@ function vProgress(){
   h+='<div class="card"><h3>Recent sessions</h3>'+(n?ss.slice(0,12).map(function(s){return '<details class="entry"><summary><b>'+esc(s.q.length>70?s.q.slice(0,67)+'…':s.q)+'</b><div class="muted small">'+dayLabel(s.n)+' · '+s.secs+' sec · '+s.wpm+' wpm · '+s.fill+' fillers</div></summary><p class="small" style="margin-top:6px">'+esc(s.text)+'</p></details>'}).join(''):'<p class="muted small">No sessions yet.</p>')+'</div>';
   h+='<div class="card"><span class="eyebrow">Settings</span><b>'+esc(label())+(S.profile&&S.profile.goal?' · '+esc(S.profile.goal):'')+'</b><div class="row wrap"><button class="btn quiet" data-act="switch">Change profile</button></div>'+
    '<div><label>Best time to practise</label><div class="row wrap">'+TIMES.map(function(t){return '<button class="pill'+(S.remind===t[0]?' win':'')+'" data-time="'+t[0]+'">'+fmt12(t[0])+'</button>'}).join('')+'</div></div>'+
-   '<details class="card" style="padding:12px;background:var(--bg)"><summary><b>Words I say often</b> <span class="muted small">(company, tools, job terms)</span></summary><div style="margin-top:8px"><textarea id="vocab" rows="2" placeholder="Leoforce, Scrum Master, Jira, Confluence">'+esc((S.vocab||[]).join(', '))+'</textarea><p class="small muted">The phone mishears names. List yours and Steady corrects them in your answers.</p><button class="btn quiet" data-act="saveVocab">Save my words</button></div></details>'+'<p class="small muted">Everything is saved on this device only for now. Recordings are never saved; they stay in this page until you close it.</p><button class="btn ghost" data-act="wipe">'+(V.confirmWipe?'Tap again to delete everything':'Delete all my data')+'</button></div>';
+   '<details class="card" style="padding:12px;background:var(--bg)"><summary><b>Words I say often</b> <span class="muted small">(company, tools, job terms)</span></summary><div style="margin-top:8px"><textarea id="vocab" rows="2" placeholder="Leoforce, Scrum Master, Jira, Confluence">'+esc((S.vocab||[]).join(', '))+'</textarea><p class="small muted">The phone mishears names. List yours and Steady corrects them in your answers.</p><button class="btn quiet" data-act="saveVocab">Save my words</button></div></details>'+'<div class="msg '+(FB.user?'ok':'wait')+'">'+(FB.user?'Signed in as <b>'+esc(FB.user.email||FB.user.displayName||'your account')+'</b>. '+(FB.status==='error'?'Saving to your account failed. It will retry.':FB.status==='saving'?'Saving…':'Your progress is saved to your account.'):'Not signed in. Progress is saved on this device only.')+'</div>'+(FB.user?'<button class="btn quiet" data-act="signout">Sign out</button>':(FB.ok?'<button class="btn quiet" data-act="signin">Sign in with Google</button>':''))+'<p class="small muted">Recordings are never saved; they stay in this page until you close it.</p><button class="btn ghost" data-act="wipe">'+(V.confirmWipe?'Tap again to delete everything':'Delete all my data')+'</button></div>';
   return h;
 }
 function onbValid(){return !!(V.pt&&V.pg&&(V.pt!=='other'||V.pspec.trim())&&(V.pg!=='Other'||V.pgs.trim()))}
@@ -375,17 +443,19 @@ function vOnboard(){
 }
 function layout(){
   var m=$('#main'),k=m.children,i;
-  $('#app').classList.toggle('nonav',!(S.profile&&!V.onb));
-  if(!S.profile||V.onb){for(i=0;i<k.length;i++)if(k[i].classList.contains('card'))k[i].classList.add('wide');return}
+  $('#app').classList.toggle('nonav',!(S.profile&&!V.onb&&!gate()));
+  if(gate()||!S.profile||V.onb){for(i=0;i<k.length;i++)if(k[i].classList.contains('card'))k[i].classList.add('wide');return}
   if(V.view==='speak'){if(k[1])k[1].classList.add('wide');for(i=0;i<k.length;i++){if(k[i].querySelector&&k[i].querySelector('#live'))k[i].classList.add('wide')}return}
   if(V.tab==='today'){for(i=0;i<Math.min(2,k.length);i++)k[i].classList.add('wide');return}
   if(V.tab==='practice'&&k.length)k[k.length-1].classList.add('wide');
 }
 function render(){
-  $('#profBtn').textContent=S.profile?label()+' ▾':'Who are you?';
-  $('#tabs').style.display=(S.profile&&!V.onb)?'':'none';
+  $('#profBtn').textContent=gate()?'Sign in':(S.profile?label()+' ▾':'Who are you?');
+  var gated=gate();
+  $('#tabs').style.display=(S.profile&&!V.onb&&!gated)?'':'none';
   var m=$('#main'),h;
-  if(!S.profile||V.onb)h=vOnboard();
+  if(gated)h=vSignin();
+  else if(!S.profile||V.onb)h=vOnboard();
   else if(V.view==='speak'&&V.prompt)h=vSpeak();
   else h={today:vToday,jobs:vJobs,talk:vTalk,practice:vPractice,progress:vProgress}[V.tab]();
   var y=m.scrollTop;m.innerHTML=h;layout();
@@ -397,7 +467,7 @@ function openSwitch(){V.onb=true;if(S.profile){V.pt=S.profile.type;V.pspec=S.pro
 function goPrompt(p){V.prompt=p;V.view='speak';V.res=null;V.typed=false;V.tab='practice';render();$('#main').scrollTop=0}
 document.addEventListener('click',function(e){
   var hb=e.target.closest('#profBtn,#modeBtn');
-  if(hb){if(hb.id==='profBtn')openSwitch();else{S.mode=isDark()?'light':'dark';save();applyLook()}return}
+  if(hb){if(hb.id==='profBtn'){if(gate()){if(FB.ready)signIn()}else openSwitch()}else{S.mode=isDark()?'light':'dark';save();applyLook()}return}
   var t=e.target.closest('button');if(!t)return;
   var d=t.dataset;
   if(d.tab){if(T.on)return;V.tab=d.tab;V.view=null;render();$('#main').scrollTop=0;return}
@@ -420,11 +490,15 @@ document.addEventListener('click',function(e){
   else if(a==='own'){var q=($('#own').value||'').trim();if(q.length<8){toast('Type the question first.');return}goPrompt({id:'own',q:q,hint:'',target:0})}
   else if(a==='saveVocab'){var vv=($('#vocab').value||'').split(/[,\n]/).map(function(x){return x.trim()}).filter(Boolean),seen={};S.vocab=vv.filter(function(x){var k=x.toLowerCase();if(seen[k])return false;seen[k]=1;return true}).slice(0,60);save();toast('Saved '+S.vocab.length+' word'+(S.vocab.length===1?'':'s'))}
   else if(a==='saveFix'){var el=$('#resText');if(!el||!V.res||!V.res.a)return;var ed=el.innerText.replace(/\s+/g,' ').trim();if(!ed||ed===V.res.text){toast('No changes to save.');return}var nfix=learnFixes(V.res.text,ed);V.res.text=ed;var na=analyse(ed,V.res.a.secs,[]);na.longest=V.res.a.longest;na.longPauses=V.res.a.longPauses;V.res.a=na;var s0=S.sessions.filter(function(s){return s.id===V.res.sid})[0];if(s0){s0.text=ed;s0.words=na.words;s0.wpm=na.wpm;s0.fill=na.fill.length;s0.fillRate=+na.fillRate.toFixed(1)}save();toast(nfix?'Saved. Steady will fix '+nfix+' word'+(nfix>1?'s':'')+' like this next time.':'Text updated.');render()}
-  else if(a==='wipe'){if(V.confirmWipe){try{localStorage.removeItem(KEY)}catch(x){}S={profile:null,target:'',sessions:[],days:[],mode:'auto',remind:null,lang:'en-IN',vocab:[],fixes:{}};V.confirmWipe=false;V.onb=false;V.pt=null;V.pg=null;toast('All data deleted');render()}else{V.confirmWipe=true;render()}}
+  else if(a==='signin')signIn();
+  else if(a==='guest'){S.guest=true;save();render()}
+  else if(a==='signout')signOutNow();
+  else if(a==='wipe'){if(V.confirmWipe){if(FB.ok&&FB.user){try{cloudRef().delete()}catch(x){}}try{localStorage.removeItem(KEY)}catch(x){}S={profile:null,target:'',sessions:[],days:[],mode:'auto',remind:null,lang:'en-IN',vocab:[],fixes:{}};V.confirmWipe=false;V.onb=false;V.pt=null;V.pg=null;toast('All data deleted');render()}else{V.confirmWipe=true;render()}}
 });
 document.addEventListener('input',function(e){var id=e.target.id;if(id==='pspec'){V.pspec=e.target.value;var b=$('#finishBtn');if(b)b.disabled=!onbValid()}else if(id==='pgs'){V.pgs=e.target.value;var b2=$('#finishBtn');if(b2)b2.disabled=!onbValid()}});
 document.addEventListener('change',function(e){if(e.target.id==='lang'){S.lang=e.target.value;save()}if(e.target.id==='alsoRec'){S.alsoRec=e.target.checked;save()}});
 try{matchMedia('(prefers-color-scheme: dark)').addEventListener('change',applyLook)}catch(e){}
+initFirebase();
 render();
 </script>
 </body>
