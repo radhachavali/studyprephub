@@ -115,7 +115,7 @@ function mean(a){return a.length?a.reduce(function(x,y){return x+y},0)/a.length:
 function dayIdx(){return Math.floor((Date.now()+19800000)/864e5)}
 function toast(m){var t=$('#toast');t.textContent=m;t.classList.add('on');clearTimeout(toast.h);toast.h=setTimeout(function(){t.classList.remove('on')},2600)}
 /* ---------- data (saved on this device) ---------- */
-var S={profile:null,target:'',sessions:[],days:[],mode:'auto',remind:null,lang:'en-IN'};
+var S={profile:null,target:'',sessions:[],days:[],mode:'auto',remind:null,lang:'en-IN',vocab:[],fixes:{}};
 try{var raw=localStorage.getItem(KEY);if(raw){var o=JSON.parse(raw);for(var k in o)S[k]=o[k]}}catch(e){}
 function save(){try{localStorage.setItem(KEY,JSON.stringify(S))}catch(e){toast('Could not save on this device.')}}
 var V={tab:'today',view:null,pt:null,pg:null,pspec:'',pgs:'',onb:false,prompt:null,res:null,typed:false};
@@ -141,6 +141,43 @@ var SUN='<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="cur
 var MOON='<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 14.5A8 8 0 0 1 9.5 4 8 8 0 1 0 20 14.5z"/></svg>';
 function isDark(){var a=document.documentElement.getAttribute('data-theme');if(a)return a==='dark';return !!(window.matchMedia&&matchMedia('(prefers-color-scheme: dark)').matches)}
 function applyLook(){var r=document.documentElement;if(S.mode==='auto')r.removeAttribute('data-theme');else r.setAttribute('data-theme',S.mode);$('#modeBtn').innerHTML=isDark()?SUN:MOON}
+/* ---------- word accuracy: my words, learned fixes ---------- */
+function lev(a,b){var m=a.length,n=b.length,i,j,d=[];for(i=0;i<=m;i++){d[i]=[i]}for(j=1;j<=n;j++)d[0][j]=j;for(i=1;i<=m;i++)for(j=1;j<=n;j++)d[i][j]=Math.min(d[i-1][j]+1,d[i][j-1]+1,d[i-1][j-1]+(a[i-1]===b[j-1]?0:1));return d[m][n]}
+function sim(a,b){var L=Math.max(a.length,b.length);return L?1-lev(a,b)/L:1}
+var BUILTIN={'scram master':'Scrum Master','scrum muster':'Scrum Master','scrub master':'Scrum Master','gyra':'Jira'};
+function esc2(s){return s.replace(/[.*+?^${}()|[\]\\]/g,'\\$&')}
+function fixText(text){
+  var out=String(text||''),k;
+  var all={};for(k in BUILTIN)all[k]=BUILTIN[k];for(k in (S.fixes||{}))all[k]=S.fixes[k];
+  Object.keys(all).forEach(function(w){out=out.replace(new RegExp('\\b'+esc2(w)+'\\b','gi'),all[w])});
+  var terms=(S.vocab||[]).filter(Boolean),multi=terms.filter(function(x){return /\s/.test(x.trim())}),single=terms.filter(function(x){return !/\s/.test(x.trim())});
+  if(multi.length){out=out.replace(/([A-Za-z']+) ([A-Za-z']+)/g,function(m,a,b){var low=(a+b).toLowerCase();for(var i=0;i<multi.length;i++){var tl=multi[i].toLowerCase().replace(/\s+/g,''),lastw=multi[i].toLowerCase().split(/\s+/).pop();if(tl===low)return multi[i];if(b.toLowerCase()===lastw&&sim(low,tl)>=0.72)return multi[i]}return m})}
+  if(single.length){out=out.replace(/[A-Za-z][A-Za-z'-]{3,}/g,function(tok){var low=tok.toLowerCase();for(var i=0;i<single.length;i++){var tl=single[i].toLowerCase();if(low===tl)return single[i];if(low.length>=5&&low.slice(0,3)===tl.slice(0,3)&&sim(low,tl)>=0.45)return single[i]}return tok})}
+  return out;
+}
+var STOP={a:1,an:1,the:1,to:1,of:1,in:1,on:1,at:1,is:1,are:1,was:1,were:1,am:1,be:1,and:1,or:1,but:1,for:1,with:1,by:1,it:1,as:1,i:1,we:1,you:1,he:1,she:1,they:1,that:1,this:1,from:1,my:1,our:1,your:1,so:1,if:1,not:1,do:1,can:1,will:1};
+function learnFixes(orig,edited){
+  var A=orig.trim().split(/\s+/),B=edited.trim().split(/\s+/),n=A.length,m=B.length,L=[],i,j,added=0;
+  var nz=function(x){return x.toLowerCase().replace(/[^a-z0-9']/g,'')};
+  for(i=0;i<=n;i++){L[i]=[];for(j=0;j<=m;j++)L[i][j]=0}
+  for(i=n-1;i>=0;i--)for(j=m-1;j>=0;j--)L[i][j]=nz(A[i])===nz(B[j])?L[i+1][j+1]+1:Math.max(L[i+1][j],L[i][j+1]);
+  i=0;j=0;var da=[],db=[],a0=0,b0=0;
+  function flush(){
+    if(da.length&&db.length&&da.length<=3&&db.length<=3){
+      var wa=da.slice(),rb=db.slice();
+      var risky=wa.length===1&&(STOP[nz(wa[0])]||nz(wa[0]).length<=3);
+      if(risky||rb.length===1&&STOP[nz(rb[0])]){
+        if(i<n&&j<m){wa.push(A[i]);rb.push(B[j])}else if(a0>0&&b0>0){wa.unshift(A[a0-1]);rb.unshift(B[b0-1])}else{da=[];db=[];return}
+      }
+      var w=wa.map(nz).join(' ').trim(),r=rb.join(' ').replace(/[.,!?;:]+$/,'');
+      if(w&&r&&w!==r.toLowerCase()){S.fixes[w]=r;added++;if(S.vocab.indexOf(r)<0&&/[A-Za-z]{3,}/.test(r)&&!STOP[r.toLowerCase()]&&S.vocab.length<60)S.vocab.push(r)}
+    }
+    da=[];db=[];
+  }
+  while(i<n&&j<m){if(nz(A[i])===nz(B[j])){flush();i++;j++}else if(L[i+1][j]>=L[i][j+1]){if(!da.length&&!db.length){a0=i;b0=j}da.push(A[i]);i++}else{if(!da.length&&!db.length){a0=i;b0=j}db.push(B[j]);j++}}
+  while(i<n){if(!da.length&&!db.length){a0=i;b0=j}da.push(A[i]);i++}while(j<m){if(!da.length&&!db.length){a0=i;b0=j}db.push(B[j]);j++}flush();
+  return added;
+}
 /* ---------- speech analysis ---------- */
 var FILL=/\b(um+|uh+|erm|like|basically|actually|you know|sort of|kind of|literally)\b/gi;
 function analyse(text,secs,stamps){
@@ -168,7 +205,7 @@ function explain(c){return ({'not-allowed':'The microphone is blocked. Tap the l
 function pickMime(){var c=['audio/webm;codecs=opus','audio/webm','audio/mp4','audio/ogg'];for(var i=0;i<c.length;i++){try{if(window.MediaRecorder&&MediaRecorder.isTypeSupported(c[i]))return c[i]}catch(e){}}return ''}
 var ac=null;
 function startMeter(stream){try{ac=ac||new (window.AudioContext||window.webkitAudioContext)();var src=ac.createMediaStreamSource(stream),an=ac.createAnalyser();an.fftSize=512;src.connect(an);var d=new Uint8Array(an.fftSize),on=true,el=$('#lvl');(function tick(){if(!on)return;an.getByteTimeDomainData(d);var m=0;for(var i=0;i<d.length;i++)m=Math.max(m,Math.abs(d[i]-128));if(el)el.style.width=Math.min(100,m/128*160)+'%';requestAnimationFrame(tick)})();return function(){on=false;if(el)el.style.width='0'}}catch(e){return function(){}}}
-function liveBox(){var b=$('#live');if(b)b.innerHTML=(esc(T.final)+(T.interim?' <i>'+esc(T.interim)+'</i>':''))||'<i>Listening… speak now.</i>'}
+function liveBox(){var b=$('#live');if(b)b.innerHTML=(esc(fixText(T.final))+(T.interim?' <i>'+esc(fixText(T.interim))+'</i>':''))||'<i>Listening… speak now.</i>'}
 function tickTimer(){if(!T.on)return;var t=$('#timer');if(t){var s=Math.round((Date.now()-T.start)/1000);t.textContent=Math.floor(s/60)+':'+('0'+s%60).slice(-2)}setTimeout(tickTimer,500)}
 /* Android Chrome sends growing, repeated 'final' results (hi / hi my / hi my name ...). Replace a repeat with its longer version instead of appending it. */
 function addFinal(txt){
@@ -182,11 +219,29 @@ function addFinal(txt){
   }
   p.push(txt);
 }
+function micMsg(code){return code==='nodevice'?'No microphone was found. Plug one in or enable it, then try again.':'The browser is blocking the microphone for this site. Click the lock icon next to the web address, set Microphone to Allow, then reload this page. On Windows also check Settings, Privacy and security, Microphone, and make sure desktop apps are allowed. Close Zoom or Teams if they are open.'}
+function micPreflight(cb){
+  var q=null;try{q=navigator.permissions&&navigator.permissions.query?navigator.permissions.query({name:'microphone'}):null}catch(e){}
+  Promise.resolve(q).then(function(p){
+    var st=p?p.state:'unknown';
+    if(st==='denied')return cb('denied');
+    if(st==='granted')return cb(null);
+    if(navigator.mediaDevices&&navigator.mediaDevices.getUserMedia){navigator.mediaDevices.getUserMedia({audio:true}).then(function(s){s.getTracks().forEach(function(x){x.stop()});cb(null)}).catch(function(e){cb(e&&e.name==='NotFoundError'?'nodevice':'denied')})}else cb(null);
+  }).catch(function(){cb(null)});
+}
 function startTalk(){
   if(T.on)return;
+  try{ac=ac||new (window.AudioContext||window.webkitAudioContext)();if(ac.state==='suspended')ac.resume()}catch(e){}
   T={parts:[],on:true,final:'',interim:'',start:Date.now(),stamps:[],err:'',stop:false,sr:null,mr:null,chunks:[],stream:null,stopMeter:null,mime:pickMime()};
   V.res=null;render();
   if(!SR){T.on=false;V.typed=true;toast('Voice typing is not supported in this browser. Use Chrome, or type your answer.');render();return}
+  micPreflight(function(err){
+    if(!T.on)return;
+    if(err){T.on=false;V.res={err:micMsg(err),url:null};render();return}
+    T.start=Date.now();runTalk();
+  });
+}
+function runTalk(){
   function boot(){
     var r=new SR();T.sr=r;r.lang=S.lang;r.continuous=true;r.interimResults=true;
     r.onresult=function(e){T.stamps.push(Date.now());var i2='';for(var i=e.resultIndex;i<e.results.length;i++){var x=e.results[i];if(x.isFinal)addFinal(x[0].transcript);else i2+=x[0].transcript}T.final=T.parts.join(' ')+' ';T.interim=i2;liveBox()};
@@ -197,9 +252,11 @@ function startTalk(){
   boot();tickTimer();
   setTimeout(function(){
     if(!T.on||!alsoRec()||!navigator.mediaDevices||!navigator.mediaDevices.getUserMedia||!window.MediaRecorder)return;
-    navigator.mediaDevices.getUserMedia({audio:true}).then(function(stream){
+    navigator.mediaDevices.getUserMedia({audio:{echoCancellation:true,noiseSuppression:true,autoGainControl:true,channelCount:1}}).then(function(stream){
       if(!T.on){stream.getTracks().forEach(function(t){t.stop()});return}
-      T.stream=stream;try{T.mr=T.mime?new MediaRecorder(stream,{mimeType:T.mime}):new MediaRecorder(stream);T.mr.ondataavailable=function(e){if(e.data&&e.data.size)T.chunks.push(e.data)};T.mr.start();T.stopMeter=startMeter(stream)}catch(x){T.mr=null}
+      T.stream=stream;var recStream=stream;
+      try{ac=ac||new (window.AudioContext||window.webkitAudioContext)();if(ac.state==='suspended')ac.resume();var src=ac.createMediaStreamSource(stream),hp=ac.createBiquadFilter(),lp=ac.createBiquadFilter(),cp=ac.createDynamicsCompressor(),dst=ac.createMediaStreamDestination();hp.type='highpass';hp.frequency.value=100;lp.type='lowpass';lp.frequency.value=7500;src.connect(hp);hp.connect(lp);lp.connect(cp);cp.connect(dst);recStream=dst.stream}catch(x){recStream=stream}
+      try{T.mr=T.mime?new MediaRecorder(recStream,{mimeType:T.mime}):new MediaRecorder(recStream);T.mr.ondataavailable=function(e){if(e.data&&e.data.size)T.chunks.push(e.data)};T.mr.start();T.stopMeter=startMeter(stream)}catch(x){T.mr=null}
     }).catch(function(){});
   },350);
 }
@@ -210,7 +267,7 @@ function finishTalk(){
   if(T.stopMeter)T.stopMeter();
   setTimeout(function(){
     if(T.stream)T.stream.getTracks().forEach(function(t){t.stop()});
-    var text=(T.final+' '+T.interim).trim(),secs=(Date.now()-T.start)/1000,url=null;
+    var text=fixText((T.final+' '+T.interim).trim()),secs=(Date.now()-T.start)/1000,url=null;
     if(T.chunks.length){var blob=new Blob(T.chunks,{type:T.mime||'audio/webm'});if(blob.size>1500)url=URL.createObjectURL(blob)}
     if(!text){V.res={err:(T.err?explain(T.err):explain('no-speech'))+(alsoRec()&&isMobile()?' On many phones the microphone can only be used by one thing at a time. Turn off "Also record my voice" and try again.':''),url:url};render();return}
     var a=analyse(text,secs,T.stamps);
@@ -220,7 +277,7 @@ function finishTalk(){
 function saveSession(rating){
   var r=V.res,p=V.prompt;if(!r||!r.a||r.saved)return;
   S.sessions.unshift({id:Date.now(),n:dayIdx(),pid:p.id,q:p.q,text:r.text,secs:r.a.secs,words:r.a.words,wpm:r.a.wpm,fill:r.a.fill.length,fillRate:+r.a.fillRate.toFixed(1),longest:+r.a.longest.toFixed(1),rating:rating||null});
-  S.sessions=S.sessions.slice(0,200);if(S.days.indexOf(dayIdx())<0)S.days.push(dayIdx());r.saved=true;save();
+  S.sessions=S.sessions.slice(0,200);if(S.days.indexOf(dayIdx())<0)S.days.push(dayIdx());r.saved=true;r.sid=S.sessions[0].id;save();
 }
 /* ---------- views ---------- */
 var ICON={today:'<path d="M12 3v3M12 18v3M3 12h3M18 12h3M5.6 5.6l2.1 2.1M16.3 16.3l2.1 2.1M18.4 5.6l-2.1 2.1M7.7 16.3l-2.1 2.1"/><circle cx="12" cy="12" r="3.5"/>',practice:'<rect x="9" y="3" width="6" height="12" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3"/>',progress:'<path d="M4 19V5M4 19h16M8 15l3-4 3 2 5-6"/>',jobs:'<rect x="3" y="7" width="18" height="13" rx="2"/><path d="M9 7V5a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2v2M3 13h18"/>',talk:'<path d="M21 12a8 8 0 0 1-11.6 7.1L4 20l1-4.6A8 8 0 1 1 21 12z"/>'};
@@ -252,7 +309,7 @@ function vSpeak(){
   var p=V.prompt,r=V.res,h='<button class="btn quiet" data-act="back" style="align-self:flex-start">Back</button>';
   h+='<div class="card" style="border-color:var(--accent)"><span class="eyebrow">'+(p.star?'Most asked question':'Practice prompt')+'</span><h2>'+esc(p.q)+'</h2>'+(p.hint?'<div class="hint">'+esc(p.hint)+'</div>':'')+'</div>';
   if(!r){
-    h+='<div class="card"><label for="lang">Language</label><select id="lang"><option value="en-IN">English (India)</option><option value="en-US">English (US)</option><option value="en-GB">English (UK)</option><option value="hi-IN">Hindi</option><option value="te-IN">Telugu</option></select>'+
+    h+='<div class="card"><label for="lang">Language</label><select id="lang"><option value="en-IN">English (India)</option><option value="en-US">English (US)</option><option value="en-GB">English (UK)</option><option value="hi-IN">Hindi</option><option value="te-IN">Telugu</option></select>'+'<details class="card" style="padding:12px;background:var(--bg)"><summary><b>Words I say often</b> <span class="muted small">(company, tools, job terms)</span></summary><div style="margin-top:8px"><textarea id="vocab" rows="2" placeholder="Leoforce, Scrum Master, Jira, Confluence">'+esc((S.vocab||[]).join(', '))+'</textarea><p class="small muted">The phone mishears names. List yours and Steady corrects them in your answers.</p><button class="btn quiet" data-act="saveVocab">Save my words</button></div></details>'+
      '<label class="row" style="font-weight:600;font-size:15px;margin:0"><input type="checkbox" id="alsoRec" style="width:20px;height:20px"'+(alsoRec()?' checked':'')+(T.on?' disabled':'')+'> Also record my voice</label><p class="small muted">'+(isMobile()?'On most phones, words appear best with this off. Turn it on only to hear yourself back.':'Lets you play your answer back afterwards.')+'</p>'+'<button class="btn big'+(T.on?' rec':'')+'" data-act="'+(T.on?'stop':'start')+'">'+(T.on?'Stop':'Start speaking')+'</button>'+
      (T.on?'<div class="row between"><b id="timer">0:00</b><span class="muted small">'+(p.target?'Aim for about '+p.target+' seconds':'Speak naturally')+'</span></div><div class="meter" aria-hidden="true"><div id="lvl"></div></div>':'')+
      '<div class="box" id="live"><i>'+(T.on?'Listening… speak now.':'Your words appear here as you speak.')+'</i></div>'+
@@ -268,7 +325,7 @@ function vSpeak(){
      '<p class="small muted">Pauses and pace are estimates from when words arrived. Feedback on what you said arrives with the AI step.</p></div>';
     if(r.url)h+='<div class="card"><h3>Hear yourself</h3><audio controls src="'+r.url+'"></audio></div>';
     else h+='<div class="card"><p class="muted small">'+(alsoRec()?'No recording was made while it was listening. That is a phone limit, not a problem with your answer.':'Recording was off, so the phone could listen for your words. Turn on "Also record my voice" to hear yourself, but on some phones the words may then stop appearing.')+'</p></div>';
-    h+='<div class="card"><h3>Your words</h3><div class="box" style="font-size:16px;min-height:0">'+esc(r.text)+'</div>'+(r.note?'<p class="small" style="color:var(--warn)">'+esc(r.note)+'</p>':'')+'</div>';
+    h+='<div class="card"><h3>Your words</h3><div class="box" id="resText" contenteditable="true" role="textbox" aria-label="Your words, tap to fix" style="font-size:16px;min-height:0">'+esc(r.text)+'</div><p class="small muted">Wrong word? Tap the text, fix it, then save. Steady remembers the fix.</p><button class="btn quiet" data-act="saveFix">Save corrections</button>'+(r.note?'<p class="small" style="color:var(--warn)">'+esc(r.note)+'</p>':'')+'</div>';
     h+='<div class="card"><label>How confident did you feel? (1 low, 5 high)</label><div class="seg" id="rate">'+[1,2,3,4,5].map(function(n){return '<button data-rate="'+n+'" aria-pressed="'+(r.rating===n)+'">'+n+'</button>'}).join('')+'</div><div class="row wrap"><button class="btn" data-act="again">Practise again</button><button class="btn quiet" data-act="back">Done</button></div></div>';
   }
   return h;
@@ -305,7 +362,7 @@ function vProgress(){
   h+='<div class="card"><h3>Recent sessions</h3>'+(n?ss.slice(0,12).map(function(s){return '<details class="entry"><summary><b>'+esc(s.q.length>70?s.q.slice(0,67)+'…':s.q)+'</b><div class="muted small">'+dayLabel(s.n)+' · '+s.secs+' sec · '+s.wpm+' wpm · '+s.fill+' fillers</div></summary><p class="small" style="margin-top:6px">'+esc(s.text)+'</p></details>'}).join(''):'<p class="muted small">No sessions yet.</p>')+'</div>';
   h+='<div class="card"><span class="eyebrow">Settings</span><b>'+esc(label())+(S.profile&&S.profile.goal?' · '+esc(S.profile.goal):'')+'</b><div class="row wrap"><button class="btn quiet" data-act="switch">Change profile</button></div>'+
    '<div><label>Best time to practise</label><div class="row wrap">'+TIMES.map(function(t){return '<button class="pill'+(S.remind===t[0]?' win':'')+'" data-time="'+t[0]+'">'+fmt12(t[0])+'</button>'}).join('')+'</div></div>'+
-   '<p class="small muted">Everything is saved on this device only for now. Recordings are never saved; they stay in this page until you close it.</p><button class="btn ghost" data-act="wipe">'+(V.confirmWipe?'Tap again to delete everything':'Delete all my data')+'</button></div>';
+   '<details class="card" style="padding:12px;background:var(--bg)"><summary><b>Words I say often</b> <span class="muted small">(company, tools, job terms)</span></summary><div style="margin-top:8px"><textarea id="vocab" rows="2" placeholder="Leoforce, Scrum Master, Jira, Confluence">'+esc((S.vocab||[]).join(', '))+'</textarea><p class="small muted">The phone mishears names. List yours and Steady corrects them in your answers.</p><button class="btn quiet" data-act="saveVocab">Save my words</button></div></details>'+'<p class="small muted">Everything is saved on this device only for now. Recordings are never saved; they stay in this page until you close it.</p><button class="btn ghost" data-act="wipe">'+(V.confirmWipe?'Tap again to delete everything':'Delete all my data')+'</button></div>';
   return h;
 }
 function onbValid(){return !!(V.pt&&V.pg&&(V.pt!=='other'||V.pspec.trim())&&(V.pg!=='Other'||V.pgs.trim()))}
@@ -361,7 +418,9 @@ document.addEventListener('click',function(e){
   else if(a==='typed2'){V.res=null;V.typed=true;render()}
   else if(a==='analyseTyped'){var tx=($('#typed').value||'').trim();if(tx.split(/\s+/).length<5){toast('Type a few sentences first.');return}V.res={text:tx,a:analyse(tx,0,[]),url:null,note:'Typed answer: pace and pauses are not measured.'};saveSession(null);render()}
   else if(a==='own'){var q=($('#own').value||'').trim();if(q.length<8){toast('Type the question first.');return}goPrompt({id:'own',q:q,hint:'',target:0})}
-  else if(a==='wipe'){if(V.confirmWipe){try{localStorage.removeItem(KEY)}catch(x){}S={profile:null,target:'',sessions:[],days:[],mode:'auto',remind:null,lang:'en-IN'};V.confirmWipe=false;V.onb=false;V.pt=null;V.pg=null;toast('All data deleted');render()}else{V.confirmWipe=true;render()}}
+  else if(a==='saveVocab'){var vv=($('#vocab').value||'').split(/[,\n]/).map(function(x){return x.trim()}).filter(Boolean),seen={};S.vocab=vv.filter(function(x){var k=x.toLowerCase();if(seen[k])return false;seen[k]=1;return true}).slice(0,60);save();toast('Saved '+S.vocab.length+' word'+(S.vocab.length===1?'':'s'))}
+  else if(a==='saveFix'){var el=$('#resText');if(!el||!V.res||!V.res.a)return;var ed=el.innerText.replace(/\s+/g,' ').trim();if(!ed||ed===V.res.text){toast('No changes to save.');return}var nfix=learnFixes(V.res.text,ed);V.res.text=ed;var na=analyse(ed,V.res.a.secs,[]);na.longest=V.res.a.longest;na.longPauses=V.res.a.longPauses;V.res.a=na;var s0=S.sessions.filter(function(s){return s.id===V.res.sid})[0];if(s0){s0.text=ed;s0.words=na.words;s0.wpm=na.wpm;s0.fill=na.fill.length;s0.fillRate=+na.fillRate.toFixed(1)}save();toast(nfix?'Saved. Steady will fix '+nfix+' word'+(nfix>1?'s':'')+' like this next time.':'Text updated.');render()}
+  else if(a==='wipe'){if(V.confirmWipe){try{localStorage.removeItem(KEY)}catch(x){}S={profile:null,target:'',sessions:[],days:[],mode:'auto',remind:null,lang:'en-IN',vocab:[],fixes:{}};V.confirmWipe=false;V.onb=false;V.pt=null;V.pg=null;toast('All data deleted');render()}else{V.confirmWipe=true;render()}}
 });
 document.addEventListener('input',function(e){var id=e.target.id;if(id==='pspec'){V.pspec=e.target.value;var b=$('#finishBtn');if(b)b.disabled=!onbValid()}else if(id==='pgs'){V.pgs=e.target.value;var b2=$('#finishBtn');if(b2)b2.disabled=!onbValid()}});
 document.addEventListener('change',function(e){if(e.target.id==='lang'){S.lang=e.target.value;save()}if(e.target.id==='alsoRec'){S.alsoRec=e.target.checked;save()}});
