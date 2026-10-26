@@ -115,6 +115,25 @@ details summary{cursor:pointer;list-style:none}details summary::-webkit-details-
   main{grid-template-columns:repeat(3,minmax(0,1fr))}
   .stepgrid{grid-template-columns:1fr 1fr 1fr}
 }
+
+.mpill{display:inline-block;font-size:12px;font-weight:800;padding:4px 10px;border-radius:99px}
+.mg{background:#dff3e6;color:#145c33}.ma{background:#fdebd3;color:#7a3f00}.mr{background:#fbe0de;color:#8c1d16}
+:root[data-theme="dark"] .mg,:root:not([data-theme="light"]) .mg.dk{background:#173d28;color:#8be0ae}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]) .mg{background:#173d28;color:#8be0ae}:root:not([data-theme="light"]) .ma{background:#4a3214;color:#ffcb8a}:root:not([data-theme="light"]) .mr{background:#4a1f1b;color:#ffb3ac}}
+:root[data-theme="dark"] .ma{background:#4a3214;color:#ffcb8a}:root[data-theme="dark"] .mr{background:#4a1f1b;color:#ffb3ac}
+.gauge{display:block;margin:0 auto}
+.chat{display:flex;flex-direction:column;gap:8px}.chat .rt{align-self:flex-end;max-width:92%;text-align:right}.chat>div{max-width:92%}
+.who{font-size:12px;font-weight:700;color:var(--muted);margin:0 4px 2px}
+.bubble{padding:12px 14px;border-radius:16px;white-space:pre-wrap;text-align:left}
+.bubble.ai{background:var(--surface);border:1px solid var(--line);border-top-left-radius:4px}.bubble.me{background:var(--accent);color:var(--accent-ink);border-top-right-radius:4px}
+.bubble.note2{border-color:var(--accent);background:var(--soft)}
+.soft{background:var(--soft);border-radius:12px;padding:10px;display:flex;flex-direction:column;gap:4px}
+.mic{width:84px;height:84px;border-radius:50%;background:var(--accent);color:var(--accent-ink);font-size:34px;display:grid;place-items:center;margin:0 auto;padding:0;border:0}
+.mic.rec{background:#b3261e;color:#fff;animation:mpu 1.2s infinite}@keyframes mpu{50%{box-shadow:0 0 0 14px rgba(179,38,30,.18)}}
+.lvl{height:8px;border-radius:99px;background:var(--line);overflow:hidden;margin:10px auto 0;max-width:260px}.lvl i{display:block;height:100%;width:0;background:#b3261e;transition:width .2s}
+.bar2{height:10px;border-radius:99px;background:var(--line);position:relative;overflow:hidden}.bar2 i{position:absolute;left:0;top:0;bottom:0;border-radius:99px}.bar2 u{position:absolute;top:0;bottom:0;left:75%;width:2px;background:var(--ink);opacity:.55}
+.btn.sm{min-height:40px;padding:0 12px;font-size:13px}
+.spin{width:40px;height:40px;border-radius:50%;border:5px solid var(--line);border-top-color:var(--accent);animation:msp 1s linear infinite;margin:8px auto}@keyframes msp{to{transform:rotate(360deg)}}
 </style>
 </head>
 <body>
@@ -146,7 +165,7 @@ function save(){try{localStorage.setItem(KEY,JSON.stringify(S))}catch(e){toast('
 /* ---------- account and cloud saving (Firebase) ---------- */
 var firebaseConfig={apiKey:"AIzaSyDpvS27o9i8NHYbCGB-YuLEyhDYa94bVdQ",authDomain:"studyprephub.firebaseapp.com",projectId:"studyprephub",storageBucket:"studyprephub.firebasestorage.app",messagingSenderId:"578977296879",appId:"1:578977296879:web:44eebdb0623f0e533a461a"};
 var FB={ok:false,ready:false,user:null,auth:null,db:null,timer:null,saving:false,again:false,loaded:false,status:''};
-var CLOUD_KEYS=['profile','target','sessions','days','mode','remind','lang','vocab','fixes','alsoRec','resume','theme','resumeAsked','bannerOff','resumeAskDay','resumeNever','targetRole','roles','plan','planDone','added','crack','research'];
+var CLOUD_KEYS=['profile','target','sessions','days','mode','remind','lang','vocab','fixes','alsoRec','resume','theme','resumeAsked','bannerOff','resumeAskDay','resumeNever','targetRole','roles','plan','planDone','added','crack','research','me','mocks','talks','jobM'];
 function gate(){return FB.ok&&(!FB.ready||(!FB.user&&!S.guest))}
 function cloudRef(){return FB.db.doc('users/'+FB.user.uid+'/data/app')}
 function cloudSave(){
@@ -221,7 +240,7 @@ function vSignin(){
    '<button class="linkbtn" data-act="guest">Try it without signing in</button>'+
    '<p class="small muted" style="margin-top:-8px">Without signing in, everything stays on this device and AI features are off.</p><p class="small muted" style="opacity:.7">'+VERSION+'</p></div></div>';
 }
-var V={tab:'today',view:null,pt:null,pg:null,pspec:'',pgs:'',onb:false,prompt:null,res:null,typed:false};
+var V={tab:'you',view:null,pt:null,pg:null,pspec:'',pgs:'',onb:false,prompt:null,res:null,typed:false};
 /* ---------- profiles and practice prompts ---------- */
 var PROFILES={
  student:{label:'Student',blurb:'School or college, interviews, presentations',goals:['Interviews','Class presentations','Speaking up in class','Group projects']},
@@ -252,7 +271,7 @@ function todayStarter(){var a=STARTERS[S.profile?S.profile.type:'professional'];
 var SUN='<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></svg>';
 var MOON='<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 14.5A8 8 0 0 1 9.5 4 8 8 0 1 0 20 14.5z"/></svg>';
 function isDark(){var a=document.documentElement.getAttribute('data-theme');if(a)return a==='dark';return !!(window.matchMedia&&matchMedia('(prefers-color-scheme: dark)').matches)}
-var VERSION='v18 · 25 Oct 2026';
+var VERSION='v19 · 26 Oct 2026';
 var PALETTE='<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3a9 9 0 1 0 0 18c1.1 0 1.8-.8 1.8-1.7 0-.5-.2-.9-.5-1.2-.3-.3-.5-.7-.5-1.2 0-.9.8-1.7 1.8-1.7H17a4 4 0 0 0 4-4C21 6.7 17 3 12 3z"/><circle cx="7.5" cy="11" r="1"/><circle cx="10" cy="7" r="1"/><circle cx="14.5" cy="7" r="1"/></svg>';
 var THEMES={
  teal:{n:'Teal',l:['#0F5E63','#E3F0F0','#FFFFFF'],d:['#5BB5B5','#173538','#062022']},
@@ -564,7 +583,7 @@ function vJobM(){
   h+='<div class="card"><div class="row between"><b>Your new resume</b><span class="pill good">ATS-friendly</span></div><p class="small muted">Built only from facts in your resume. Check every line before you send it.</p>'+
     (m.fill_in&&m.fill_in.length?'<div class="msg wait"><b>Fill in before you send.</b> Replace the [brackets] with real details.'+list('',m.fill_in)+'</div>':'')+
     '<div class="box" style="font-size:14px;min-height:0;max-height:420px;overflow:auto;white-space:pre-wrap">'+esc(resumeText(m.resume))+'</div>'+
-    '<div class="row wrap"><button class="btn" data-act="dlDocx">Download Word (.docx)</button><button class="btn quiet" data-act="copyResume">Copy text</button></div>'+
+    '<div class="row wrap"><button class="btn" data-act="dlDocx">Download Word (.docx)</button><button class="btn quiet" data-act="dlPdf">PDF</button><button class="btn quiet" data-act="dlTxt">Text (.txt)</button><button class="btn quiet" data-act="copyResume">Copy text</button></div><p class="small muted">To use Google Docs, upload the Word file to Google Drive and open it with Docs.</p>'+
     '<p class="small muted">Keep your original resume. This is a version tuned for this one job.'+(typeof m.remaining==='number'?' '+m.remaining+' more '+(m.remaining===1?'use':'uses')+' of this today.':'')+'</p>'+
     '<button class="btn ghost" data-act="jmMnew"'+(V.jm.busy?' disabled':'')+'>Analyse again</button></div>';
   return h;
@@ -675,7 +694,7 @@ function rrMsg(e){
   var c=e&&e.code;
   return c==='notfound'?'The server does not have the new worker.js yet. Paste the new worker.js in Cloudflare and Deploy.':c==='auth'?'Your sign-in expired. Sign out and in again.':c==='limit'?'You have used today\'s 3 new role searches. Roles other people already searched open instantly. Try again tomorrow, or use the built-in topics below.':c==='signin'?'Sign in to research a role.':c==='timeout'?'The search took too long. Tap Research this role to try again.':c==='busy'?'The free AI is busy right now. Try again in a minute.':c==='network'?'No connection to the server. Check your internet and try again.':'We could not research this role right now ('+(c||'error')+'). The built-in topics below still work.';
 }
-function rrRole(){var el=$('#plRole')||$('#lrRole');var v=(el&&el.value||'').trim();return v||(V.setup&&V.setup.role)||curRole()||''}
+function rrRole(){var el=$('#meTarget')||$('#plRole')||$('#lrRole');var v=(el&&el.value||'').trim();return v||(V.setup&&V.setup.role)||curRole()||''}
 function rrRun(role){
   var rr=rrState();if(rr.busy)return;role=(role||'').trim();
   if(role.length<3){toast('Choose or type the role first.');return}
@@ -852,6 +871,7 @@ function vPlanView(){
   h+='<div class="card" style="border-color:var(--accent)"><div class="row between"><span class="eyebrow" style="color:var(--accent)">'+(d===cur?'Today':'Day '+d)+' · Week '+w+'</span><span class="small muted">'+dd[0]+' of '+dd[1]+' done</span></div><h2>'+esc(dp.title)+'</h2><div class="small muted">'+esc(dp.sub)+'</div><div>'+dp.tasks.map(function(t,i){return taskHtml(t,d,i)}).join('')+'</div>'+
    (dd[1]&&dd[0]===dd[1]?'<div class="msg ok"><b>Day '+d+' complete.</b> '+(d<p.days?'Come back for the next day.':'You finished the plan. Good luck.')+'</div>':'')+
    '<div class="row between"><button class="btn quiet" data-pday="'+(d-1)+'"'+(d<=1?' disabled':'')+'>‹ Previous day</button><button class="btn quiet" data-pday="'+(d+1)+'"'+(d>=p.days?' disabled':'')+'>Next day ›</button></div></div>';
+  h+=vFitCard();
   h+='<div class="card"><b>More videos for week '+w+': '+esc(dp.weekTitle)+'</b><p class="small muted">Opens YouTube in a new tab.</p><div class="row wrap" style="gap:8px">'+ext(ytU(TQ.v),'Explained')+ext(ytU(ctx0+' interview questions and answers'),'Interview tips')+ext(ytU(TQ.v+' full course'),'Full course')+'</div></div>';
   h+='<div class="card"><b>Practice tests for week '+w+': '+esc(dp.weekTitle)+'</b><p class="small muted">Quizzes, exercises and mock tests. Check your answers, then note what to repeat.</p><div class="row wrap" style="gap:8px">'+ext(ggU(TQ.t),'Practice quiz')+ext(ggU(TQ.t+' exercises case study'),'Exercises')+ext(ggU(ctx0+' mock test pdf'),'Mock test')+'</div></div>';
   if(S.added&&S.added.length)h+='<div class="card"><b>Topics you added</b>'+S.added.map(function(t){return '<div class="entry"><b>'+esc(t)+'</b><div class="row wrap" style="gap:8px;margin-top:6px">'+ext(ytU(t+' explained'),'Videos')+ext(ggU(t+' guide'),'Read')+ext(ggU(t+' quiz practice test'),'Practice test')+'<button class="btn ghost" data-radd="'+esc(t)+'" style="min-height:44px;padding:0 12px;font-size:13px">Remove</button></div></div>'}).join('')+'</div>';
@@ -903,7 +923,7 @@ function vPrepare(){
   if(V.sub==='full')return vFullPlan();
   if(V.sub==='crack')return vCrack();
   var h=segBar(seg);
-  if(seg==='plan')h+=(S.plan&&!V.editPlan)?vPlanView():vSetup()+(S.plan?'<button class="btn quiet" data-act="planCancel">Cancel</button>':'');
+  if(seg==='plan')h+=(S.plan&&!V.editPlan)?vPlanView():vFitCard()+vSetup()+(S.plan?'<button class="btn quiet" data-act="planCancel">Cancel</button>':'');
   else if(seg==='learn')h+=vLearn();
   else h+=vSearch();
   return h;
@@ -935,8 +955,8 @@ function vImprove(){
   return h+'</div>';
 }
 /* ---------- views ---------- */
-var ICON={interview:'<rect x="3" y="7" width="18" height="13" rx="2"/><path d="M9 7V5a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2v2M3 13h18"/>',study:'<path d="M4 5a2 2 0 0 1 2-2h13v16H6a2 2 0 0 0-2 2z"/><path d="M4 21V5M9 7h6M9 11h6"/>',prepare:'<path d="M4 5a2 2 0 0 1 2-2h13v16H6a2 2 0 0 0-2 2z"/><path d="M4 21V5M9 7h6M9 11h6"/>',today:'<path d="M12 3v3M12 18v3M3 12h3M18 12h3M5.6 5.6l2.1 2.1M16.3 16.3l2.1 2.1M18.4 5.6l-2.1 2.1M7.7 16.3l-2.1 2.1"/><circle cx="12" cy="12" r="3.5"/>',practice:'<rect x="9" y="3" width="6" height="12" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3"/>',progress:'<path d="M4 19V5M4 19h16M8 15l3-4 3 2 5-6"/>',jobs:'<rect x="3" y="7" width="18" height="13" rx="2"/><path d="M9 7V5a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2v2M3 13h18"/>',talk:'<path d="M21 12a8 8 0 0 1-11.6 7.1L4 20l1-4.6A8 8 0 1 1 21 12z"/>'};
-var TABS=[['today','Today'],['interview','Interview'],['study','Study plan'],['practice','Speak'],['progress','Progress']];
+var ICON={you:'<circle cx="12" cy="8" r="4"/><path d="M4 21c0-4.4 3.6-8 8-8s8 3.6 8 8"/>',mock:'<rect x="9" y="3" width="6" height="12" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3"/>',plan:'<rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 10h18M8 3v4M16 3v4"/>',talk:'<path d="M4 5h16v11H9l-5 4z"/>',interview:'<rect x="3" y="7" width="18" height="13" rx="2"/><path d="M9 7V5a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2v2M3 13h18"/>',study:'<path d="M4 5a2 2 0 0 1 2-2h13v16H6a2 2 0 0 0-2 2z"/><path d="M4 21V5M9 7h6M9 11h6"/>',prepare:'<path d="M4 5a2 2 0 0 1 2-2h13v16H6a2 2 0 0 0-2 2z"/><path d="M4 21V5M9 7h6M9 11h6"/>',today:'<path d="M12 3v3M12 18v3M3 12h3M18 12h3M5.6 5.6l2.1 2.1M16.3 16.3l2.1 2.1M18.4 5.6l-2.1 2.1M7.7 16.3l-2.1 2.1"/><circle cx="12" cy="12" r="3.5"/>',practice:'<rect x="9" y="3" width="6" height="12" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3"/>',progress:'<path d="M4 19V5M4 19h16M8 15l3-4 3 2 5-6"/>',jobs:'<rect x="3" y="7" width="18" height="13" rx="2"/><path d="M9 7V5a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2v2M3 13h18"/>',talk:'<path d="M21 12a8 8 0 0 1-11.6 7.1L4 20l1-4.6A8 8 0 1 1 21 12z"/>'};
+var TABS=[['you','About you'],['mock','Mock'],['plan','Plan'],['talk','Talk']];
 function renderTabs(){$('#tabs').innerHTML=TABS.map(function(t){return '<button data-tab="'+t[0]+'"'+(V.tab===t[0]?' aria-current="page"':'')+'><svg viewBox="0 0 24 24" aria-hidden="true">'+ICON[t[0]]+'</svg>'+t[1]+'</button>'}).join('')}
 function streak(){var n=dayIdx(),c=0;if(S.days.indexOf(n)<0)n--;while(S.days.indexOf(n)>=0){c++;n--}return c}
 function dayLabel(n){var d=dayIdx()-n;return d<=0?'Today':d===1?'Yesterday':d+' days ago'}
@@ -971,7 +991,7 @@ function vToday(){
 function promptById(id){if(id==='tmay')return TMAY;var all=[].concat.apply([],Object.keys(STARTERS).map(function(k){return STARTERS[k]})).concat(GENERAL_JOB,GENERAL_BIZ);var f=all.filter(function(x){return x.id===id})[0];return f||todayStarter()}
 function vSpeakResume(){
   var r=S.resume;
-  if(r)return '<div class="card"><div class="row between"><b>My resume</b><span class="pill good">Saved</span></div><p class="small muted">'+r.text.split(/\s+/).length+' words. Used only when you tap Improve my answer.</p><details><summary class="small" style="color:var(--accent);font-weight:700;min-height:44px;display:flex;align-items:center">View resume</summary><div class="box" style="font-size:13px;min-height:0;max-height:200px;overflow:auto;white-space:pre-wrap">'+esc(r.text.slice(0,3000))+'</div></details><button class="btn quiet" data-act="speakResume">Replace</button></div>';
+  if(r)return '<div class="card"><div class="row between"><b>My resume</b><span class="pill good">Saved</span></div><p class="small muted">'+r.text.split(/\s+/).length+' words. Used for your first interview question, your suggested answers and the AI resume tools. You never need to add it again.</p><details><summary class="small" style="color:var(--accent);font-weight:700;min-height:44px;display:flex;align-items:center">View resume</summary><div class="box" style="font-size:13px;min-height:0;max-height:200px;overflow:auto;white-space:pre-wrap">'+esc(r.text.slice(0,3000))+'</div></details><button class="btn quiet" data-act="speakResume">Replace</button></div>';
   return '<div class="card"><div class="row between"><b>My resume</b><span class="pill win">Optional</span></div><p class="small muted">Add it for answers built from your real experience. You can practise without it.</p><button class="btn quiet" data-act="speakResume">Add resume</button></div>';
 }
 function vSpeak(){
@@ -1034,7 +1054,12 @@ function vProgress(){
   }
   h+='</div>';
   h+='<div class="card"><h3>Recent sessions</h3>'+(n?ss.slice(0,12).map(function(s){return '<details class="entry"><summary><b>'+esc(s.q.length>70?s.q.slice(0,67)+'…':s.q)+'</b><div class="muted small">'+dayLabel(s.n)+' · '+s.secs+' sec · '+s.wpm+' wpm · '+s.fill+' fillers</div></summary><p class="small" style="margin-top:6px">'+esc(s.text)+'</p></details>'}).join(''):'<p class="muted small">No sessions yet.</p>')+'</div>';
-  h+='<div class="card"><span class="eyebrow">Settings</span><b>'+esc(label())+(S.profile&&S.profile.goal?' · '+esc(S.profile.goal):'')+'</b><div class="row wrap"><button class="btn quiet" data-act="switch">Change profile</button></div>'+
+  h+=vSettingsCard();
+  return h;
+}
+function vSettingsCard(){
+  var h='';
+  h+='<div class="card"><span class="eyebrow">Settings</span><b>Colour, practice time and your words</b><div class="row wrap"></div>'+
    '<div><label>Colour</label><div class="row wrap">'+Object.keys(THEMES).map(function(k){var c=THEMES[k].l[0],on=(S.theme||'teal')===k;return '<button data-theme="'+k+'" aria-pressed="'+on+'" aria-label="'+THEMES[k].n+' colour" style="display:inline-flex;align-items:center;gap:8px;padding:8px 14px;min-height:44px;border-radius:999px;font-weight:700;background:var(--surface);border:2px solid '+(on?'var(--accent)':'var(--line)')+'"><span style="width:18px;height:18px;border-radius:50%;background:'+c+'"></span>'+THEMES[k].n+'</button>'}).join('')+'</div></div>'+
    '<div><label>Best time to practise</label><div class="row wrap">'+TIMES.map(function(t){return '<button class="pill'+(S.remind===t[0]?' win':'')+'" data-time="'+t[0]+'">'+fmt12(t[0])+'</button>'}).join('')+'</div></div>'+
    '<details class="card" style="padding:12px;background:var(--bg)"><summary><b>Words I say often</b> <span class="muted small">(company, tools, job terms)</span></summary><div style="margin-top:8px"><textarea id="vocab" rows="2" placeholder="Leoforce, Scrum Master, Jira, Confluence">'+esc((S.vocab||[]).join(', '))+'</textarea><p class="small muted">The phone mishears names. List yours and Steady corrects them in your answers.</p><button class="btn quiet" data-act="saveVocab">Save my words</button></div></details>'+'<div class="msg '+(FB.user?'ok':'wait')+'">'+(FB.user?'Signed in as <b>'+esc(FB.user.email||FB.user.displayName||'your account')+'</b>. '+(FB.status==='error'?'Saving to your account failed. It will retry.':FB.status==='saving'?'Saving…':'Your progress is saved to your account.'):'Not signed in. Progress is saved on this device only.')+'</div>'+(FB.user?'<button class="btn quiet" data-act="signout">Sign out</button>':(FB.ok?'<button class="btn quiet" data-act="signin">Sign in with Google</button>':''))+'<p class="small muted">Recordings are never saved; they stay in this page until you close it.</p><p class="small muted" style="opacity:.7">Steady '+VERSION+'</p><button class="btn ghost" data-act="wipe">'+(V.confirmWipe?'Tap again to delete everything':'Delete all my data')+'</button></div>';
@@ -1056,16 +1081,384 @@ function layout(){
   if(V.tab==='today'){for(i=0;i<Math.min(2,k.length);i++)k[i].classList.add('wide');return}
   if(V.tab==='practice'&&k.length)k[k.length-1].classList.add('wide');
 }
+/* =====================================================================
+   v19: About you, Mock interview, Plan, Talk
+   ===================================================================== */
+S.me=S.me||{name:'',company:'',role:'',years:''};S.mocks=S.mocks||[];S.talks=S.talks||[];
+if(!S.profile)S.profile={type:'professional',spec:'',goal:'Promotion'};
+var V_BAR=75;
+function wc(t){return (String(t||'').trim().match(/\S+/g)||[]).length}
+function mCol(n){return n>=75?'#2e9a5c':n>=55?'#d98a1f':'#d4473d'}
+function mCls(n){return n>=75?'mg':n>=55?'ma':'mr'}
+function mWord(n){return n>=75?'Green: strong':n>=55?'Amber: close, practise again':'Red: needs work'}
+function mTime(s){s=Math.max(0,Math.round(s||0));return Math.floor(s/60)+':'+(s%60<10?'0':'')+(s%60)}
+function meterSvg(v,size){
+  v=Math.max(0,Math.min(100,Math.round(v||0)));var w=size||240,cx=120,cy=115,r=90;
+  function pt(val,rad){var a=Math.PI*(1-val/100);return [cx+rad*Math.cos(a),cy-rad*Math.sin(a)]}
+  function arc(a,b,c){var p=pt(a,r),q=pt(b,r);return '<path d="M'+p[0].toFixed(1)+' '+p[1].toFixed(1)+' A'+r+' '+r+' 0 0 1 '+q[0].toFixed(1)+' '+q[1].toFixed(1)+'" stroke="'+c+'" stroke-width="22" fill="none"/>'}
+  var n=pt(v,r-8);
+  return '<svg class="gauge" width="'+w+'" height="'+Math.round(w*.55)+'" viewBox="0 0 240 132" role="img" aria-label="Feedback meter '+v+' out of 100. '+mWord(v)+'">'+arc(0,55,'#d4473d')+arc(55,75,'#e8a43a')+arc(75,100,'#2e9a5c')+'<line x1="'+cx+'" y1="'+cy+'" x2="'+n[0].toFixed(1)+'" y2="'+n[1].toFixed(1)+'" stroke="var(--ink)" stroke-width="5" stroke-linecap="round"/><circle cx="'+cx+'" cy="'+cy+'" r="8" fill="var(--ink)"/><text x="22" y="130" font-size="11" fill="var(--muted)">0</text><text x="106" y="20" font-size="11" fill="var(--muted)">75</text><text x="204" y="130" font-size="11" fill="var(--muted)">100</text></svg>'+
+   '<div style="text-align:center;margin-top:-6px"><b style="font-size:30px">'+v+'</b> <span class="mpill '+mCls(v)+'">'+mWord(v)+'</span></div>';
+}
+function meterLegend(){return '<div class="small muted" style="text-align:center">Red under 55 · Amber 55 to 74 · Green 75 and above</div>'}
+/* ---------- worker calls ---------- */
+function workerForm(path,fd,ms){
+  if(!CFG.worker)return Promise.reject({code:'noserver'});
+  if(!FB.user)return Promise.reject({code:'signin'});
+  return FB.user.getIdToken().then(function(tok){
+    var ac=new AbortController(),tm=setTimeout(function(){ac.abort()},ms||45000);
+    return fetch(CFG.worker.replace(/\/$/,'')+path,{method:'POST',signal:ac.signal,headers:{authorization:'Bearer '+tok},body:fd}).then(function(r){clearTimeout(tm);return r},function(e){clearTimeout(tm);throw {code:(e&&e.name==='AbortError')?'timeout':'network'}});
+  }).then(function(r){return r.json().catch(function(){return {}}).then(function(j){if(!r.ok)throw {code:j.code||('http'+r.status)};return j})});
+}
+function micMsg(e){var n=e&&(e.name||e.code);return n==='NotAllowedError'||n==='SecurityError'?'The microphone is blocked. Tap the lock icon next to the web address, set Microphone to Allow, then try again. You can also type your answer.':n==='NotFoundError'?'No microphone was found. You can type your answer.':n==='norec'?'This browser cannot record. You can type your answer or use phone dictation.':'The microphone could not start. You can type your answer.'}
+/* ---------- the interviewer speaks ---------- */
+var VC={ok:null,on:false,rate:1};
+function pickVoice(){try{var vs=speechSynthesis.getVoices()||[],pref=['en-IN','en-GB','en-US','en'],i,v;for(i=0;i<pref.length;i++){v=vs.filter(function(x){return (x.lang||'').replace('_','-').indexOf(pref[i])===0})[0];if(v)return v}}catch(e){}return null}
+function vcBanner(){return VC.on?'<div class="note" id="vcb">🔊 The interviewer is speaking. Listen, then answer.</div>':VC.ok===false?'<div class="note" id="vcb">🔇 Voice could not start on this phone. Read the question below, or turn the media volume up and tap Repeat question.</div>':'<div id="vcb"></div>'}
+function vcUpd(){var e=document.getElementById('vcb');if(e)e.outerHTML=vcBanner()}
+function say(t){
+  try{if(!window.speechSynthesis)throw 1;var u=new SpeechSynthesisUtterance(t),v=pickVoice();if(v){u.voice=v;u.lang=v.lang}u.rate=VC.rate||1;
+    u.onstart=function(){VC.ok=true;VC.on=true;vcUpd()};u.onend=u.onerror=function(){VC.on=false;vcUpd()};
+    speechSynthesis.cancel();speechSynthesis.speak(u);setTimeout(function(){if(VC.ok===null){VC.ok=false;vcUpd()}},2500)}catch(e){VC.ok=false;vcUpd()}
+}
+/* ---------- recording and transcription ---------- */
+var RC={mr:null,chunks:[],stream:null,t0:0,iv:null,on:false,peak:0,ctx:null,an:null,url:null};
+function recStart(tick){
+  if(!navigator.mediaDevices||!window.MediaRecorder)return Promise.reject({code:'norec'});
+  return navigator.mediaDevices.getUserMedia({audio:{echoCancellation:true,noiseSuppression:true}}).then(function(stream){
+    var mime=pickMime();RC.stream=stream;RC.chunks=[];RC.peak=0;RC.mr=new MediaRecorder(stream,mime?{mimeType:mime}:{});
+    RC.mr.ondataavailable=function(e){if(e.data&&e.data.size)RC.chunks.push(e.data)};RC.mr.start(1000);RC.t0=Date.now();RC.on=true;
+    try{RC.ctx=RC.ctx||new (window.AudioContext||window.webkitAudioContext)();var src=RC.ctx.createMediaStreamSource(stream);RC.an=RC.ctx.createAnalyser();RC.an.fftSize=512;src.connect(RC.an)}catch(e){RC.an=null}
+    RC.iv=setInterval(function(){var lv=0;if(RC.an){var d=new Uint8Array(RC.an.fftSize),i,s=0;RC.an.getByteTimeDomainData(d);for(i=0;i<d.length;i++){var x=(d[i]-128)/128;s+=x*x}lv=Math.sqrt(s/d.length);if(lv>RC.peak)RC.peak=lv}tick((Date.now()-RC.t0)/1000,lv)},250);
+  });
+}
+function recStop(){return new Promise(function(res){
+  clearInterval(RC.iv);RC.on=false;
+  RC.mr.onstop=function(){var type=RC.mr.mimeType||'audio/webm',blob=new Blob(RC.chunks,{type:type});try{RC.stream.getTracks().forEach(function(t){t.stop()})}catch(e){}if(RC.url)try{URL.revokeObjectURL(RC.url)}catch(e){}RC.url=URL.createObjectURL(blob);res({blob:blob,secs:Math.round((Date.now()-RC.t0)/1000),peak:RC.peak})};
+  try{RC.mr.stop()}catch(e){res({blob:null,secs:0,peak:0})}
+})}
+function transcribeBlob(blob){
+  var fd=new FormData();fd.append('file',blob,'speech.'+(/mp4/.test(blob.type)?'mp4':/ogg/.test(blob.type)?'ogg':'webm'));
+  fd.append('lang',String(S.lang||'en-IN').slice(0,2));
+  fd.append('prompt',(S.vocab||[]).concat([S.me.company,S.me.role,S.me.name,S.targetRole]).filter(Boolean).join(', ').slice(0,300));
+  return workerForm('/transcribe',fd,50000).then(function(j){return fixText?fixText(j.text||''):(j.text||'')});
+}
+var DICT={sr:null,on:false};
+function dictToggle(id){
+  if(!SR){toast('Phone dictation is not supported in this browser.');return}
+  if(DICT.on&&DICT.sr){try{DICT.sr.stop()}catch(e){}return}
+  var ta=document.getElementById(id);if(!ta)return;var r=new SR(),base=ta.value;r.lang=S.lang||'en-IN';r.continuous=true;r.interimResults=true;DICT.sr=r;DICT.on=true;
+  r.onresult=function(e){var t='',i;for(i=0;i<e.results.length;i++)t+=e.results[i][0].transcript+' ';ta.value=(base?base+' ':'')+t.trim();ta.dispatchEvent(new Event('input',{bubbles:true}))};
+  r.onerror=function(){DICT.on=false;toast('Dictation stopped.')};r.onend=function(){DICT.on=false;var b=document.getElementById('dictBtn');if(b)b.textContent='🎤 Use phone dictation'};
+  try{r.start();var b=document.getElementById('dictBtn');if(b)b.textContent='■ Stop dictation'}catch(e){DICT.on=false}
+}
+function delivery(text,secs){return {words:wc(text),secs:Math.round(secs||0),fillers:(String(text).match(FILL)||[]).length}}
+/* shared recorder card (Mock and Talk) */
+function recorderCard(st,kind,label){
+  var h='<div class="card"><div class="row between"><b>'+label+'</b>'+(kind==='mk'?'<span><button class="btn quiet sm" data-act="mkRepeat">🔊 Repeat question</button></span>':'')+'</div>';
+  if(st.busy)return h+'<div style="text-align:center"><div class="spin"></div><b>'+esc(st.busy)+'</b></div></div>';
+  h+='<div style="text-align:center"><button class="mic'+(st.rec?' rec':'')+'" data-act="'+kind+'Mic" aria-label="'+(st.rec?'Stop recording':'Start recording')+'">'+(st.rec?'■':'🎙')+'</button><div class="small muted" style="margin-top:6px">'+(st.rec?'Recording <b id="rtime">0:00</b>. Tap to stop.':st.blob||st.tr?'Recorded '+mTime(st.secs)+'.':'Tap the mic and speak')+'</div>'+(st.rec?'<div class="lvl"><i id="rlvl"></i></div>':'')+'</div>';
+  if(st.err)h+='<div class="msg no">'+esc(st.err)+'</div>';
+  if(!st.rec){
+    h+='<div><label for="'+kind+'Tr">'+(st.blob||st.tr?'What we heard (you can edit)':'Or type your answer')+'</label><textarea id="'+kind+'Tr" rows="4" placeholder="Your answer appears here after you record. You can also type.">'+esc(st.tr||'')+'</textarea></div>';
+    h+='<div class="row wrap">'+(st.blob?'<button class="btn quiet sm" data-act="'+kind+'Play">▶ Play my recording</button><button class="btn quiet sm" data-act="'+kind+'Redo">Record again</button>':'')+(SR?'<button class="btn quiet sm" id="dictBtn" data-act="'+kind+'Dict">🎤 Use phone dictation</button>':'')+'</div>';
+  }
+  return h+'</div>';
+}
+function recToggle(kind){
+  var st=kind==='mk'?V.mk:V.tk;
+  if(!RC.on){
+    recStart(function(secs,lv){var e=document.getElementById('rtime');if(e)e.textContent=mTime(secs);var b=document.getElementById('rlvl');if(b)b.style.width=Math.min(100,Math.round(lv*220))+'%'}).then(function(){try{speechSynthesis.cancel()}catch(e){}st.rec=true;st.err='';st.blob=null;st.tr='';render()},function(e){st.err=micMsg(e);render()});
+  }else{
+    st.rec=false;st.busy='Listening back…';render();
+    recStop().then(function(r){
+      st.secs=r.secs;st.blob=r.blob;
+      if(!r.blob||r.secs<1){st.busy='';st.err='That recording was empty. Try again.';st.blob=null;render();return}
+      var low=r.peak<0.02;
+      st.busy='Writing down what you said…';render();
+      transcribeBlob(r.blob).then(function(t){st.busy='';st.tr=t;if(!t||wc(t)<2)st.err='We could not hear clear words. Check the microphone, or type your answer.';else if(low)st.err='The sound was quiet. Check what we heard below.';render()},
+        function(e){st.busy='';st.err=(e&&e.code==='signin'?'Sign in to turn your voice into text.':e&&e.code==='limit'?'You used today\'s voice-to-text. Type your answer or use phone dictation.':'We could not turn your voice into text just now. Type your answer or use phone dictation.');render()});
+    });
+  }
+}
+/* ---------- basic (offline) scoring: used only when the AI is unavailable ---------- */
+function basicScore(q,text,secs){
+  var l=text.toLowerCase(),w=wc(text),kws=(q.q||'').toLowerCase().replace(/[^a-z ]/g,' ').split(' ').filter(function(x){return x.length>4}).slice(0,8),
+    kw=kws.filter(function(k){return l.indexOf(k.slice(0,5))>=0}).length,nums=(text.match(/\d+/g)||[]).length,marks=(l.match(/\b(first|then|next|finally|because|result|option|risk|instead|therefore|for example)\b/g)||[]).length,fill=(text.match(FILL)||[]).length;
+  var sc={relevance:Math.min(90,35+kw*14+(w>25?10:0)),structure:Math.min(90,30+marks*13+(w>45?12:0)),evidence:Math.min(90,28+nums*18+(/for example|once|last year/.test(l)?14:0)),role_knowledge:Math.min(85,35+Math.min(4,Math.floor(w/20))*8),communication:Math.max(20,Math.min(92,84-fill*9-(w<20?35:w<35?15:0)))};
+  if(w<8){sc.relevance=Math.min(sc.relevance,25);sc.structure=Math.min(sc.structure,20)}
+  var t=0;[['relevance',25],['structure',20],['evidence',20],['role_knowledge',25],['communication',10]].forEach(function(x){t+=sc[x[0]]*x[1]/100});
+  return {total:Math.round(t),scores:sc,basic:true,worked:'Basic check only (the AI is not available right now).',improve:[sc.evidence<60?'Add one real example with a number.':'',sc.structure<60?'Use an order: first, then, finally.':'',sc.relevance<60?'Answer the question in your first sentence.':''].filter(Boolean),missing:[],suggested:''};
+}
+var MK_FIX={relevance:'Answer the question in your first sentence, then add detail.',structure:'Use an order: situation, what I did, result. Say first, then, finally.',evidence:'Add one real example and one number (percent, days, people, cost).',role_knowledge:'Use the words and steps this role is tested on. Study the topic in Plan.',communication:'Aim for 60 to 90 seconds, short sentences, fewer filler words.'};
+var MK_NAMES={relevance:'Relevance',structure:'Structure',evidence:'Evidence',role_knowledge:'Role knowledge',communication:'Communication'};
+var MK_W={relevance:25,structure:20,evidence:20,role_knowledge:25,communication:10};
+/* ---------- questions ---------- */
+function mockQuestions(n){
+  var role=S.targetRole||'',out=[{q:'Tell me about yourself.',type:'Introduction',intro:true}],pool=[],seen={},rd=rData(role),f=fam(role);
+  var recent={};(S.mocks||[]).slice(0,3).forEach(function(m){(m.qs||[]).forEach(function(x){recent[(x.q||'').toLowerCase()]=1})});
+  function add(q,type,tip){var k=(q||'').toLowerCase();if(!q||seen[k]||/about yourself/.test(k))return;seen[k]=1;pool.push({q:q,type:type||'Role',tip:tip||''})}
+  if(rd)(rd.questions||[]).forEach(function(x){add(x.q,x.round,x.tip)});
+  qlist(f).forEach(function(x){add(x[1],x[0]==='Practice'?'Role':x[0],x[2])});
+  GENERAL_JOB.forEach(function(g){add(g.q,'General')});
+  var fresh=pool.filter(function(x){return !recent[x.q.toLowerCase()]});if(fresh.length>=n-1)pool=fresh;
+  var off=((S.mocks||[]).length*2)%Math.max(1,pool.length),rot=pool.slice(off).concat(pool.slice(0,off));
+  return out.concat(rot.slice(0,n-1));
+}
+function mkTopics(){var f=fam(S.targetRole||''),a=[];f.groups.forEach(function(g){g[1].forEach(function(t){a.push(t[0])})});return a.slice(0,8)}
+function probeRule(q,text){
+  var l=text.toLowerCase(),w=wc(text);
+  if(q.type==='Behavioural'&&!/\d/.test(text))return 'What was the measurable result, and how did you know it worked?';
+  if(w<30)return 'Can you walk me through the first three steps you would take, in order?';
+  if(!/\d/.test(text)&&!/metric|measure|baseline/.test(l))return 'What number or measure would tell you this worked?';
+  if(!/risk|trade-?off|mitigat|escalat/.test(l)&&q.type!=='Introduction')return 'What is the biggest risk here, and how would you handle it?';
+  return null;
+}
+function outlineFor(q){
+  var me=S.me;if(q.intro)return ['Who you are now: '+(me.role||'your role')+' at '+(me.company||'your company')+', '+(me.years||'?')+' years','One or two results with numbers'+(S.resume?' (from your resume)':' (add yours)'),'Why '+(S.targetRole||'the new role')+' is your next step'];
+  var t=q.type||'';return /behav/i.test(t)?['Situation: one real example, two lines','What you did (your actions, not the team\'s)','The result with a number','What you learned']:/scenario|technical|case|ai/i.test(t)?['Clarify the goal and the limits first','Give 3 steps in order','Name the biggest risk and how you would handle it','Say how you would measure success']:['Give your answer or decision rule first','Support it with one real example','Mention the trade-off','Close with the result you want'];
+}
+function fitVerdict(avg,minSkill){return avg>=75&&minSkill>=60?['Strong fit','mg','You are ready to interview for this role.']:avg>=60?['Close fit','ma','You are close. A few gaps to close before you apply.']:avg>=45?['Partial fit','ma','You have a base, but several role skills need work.']:['Not yet','mr','Spend a few weeks on the plan, then try again.']}
+/* ---------- mock interview ---------- */
+function mkFresh(n){return {step:'start',n:n||5,qs:[],i:0,try:0,stage:'answer',first:'',fuUsed:false,ready:false,thread:[],fb:null,tr:'',blob:null,secs:0,rec:false,busy:'',err:'',best:[],bestFb:[],tries:[],prev:[],howOpen:false,sampOpen:false,allSecs:0,loading:false}}
+V.mk=mkFresh();V.tk={topic:'Pitch yourself',rec:false,busy:'',err:'',tr:'',blob:null,secs:0,fb:null,hist:[],custom:''};
+function meReady(){var m=S.me;return !!(m.name&&m.company&&m.role&&m.years&&(S.targetRole||'').length>2)}
+function vMock(){
+  var m=V.mk,h='';
+  if(!meReady())return '<div class="card"><h2>Tell me about you first</h2><p class="muted small" style="margin:0">The mock interview uses your name, current role, years and the role you want. It takes one minute.</p><button class="btn" data-act="goYou">Go to About you</button></div>';
+  if(m.step==='start')return mkStartView();
+  if(m.step==='final')return mkFinal();
+  var q=m.qs[m.i];
+  h+='<div class="row between"><b>Question '+(m.i+1)+' of '+m.qs.length+'</b><span class="pill">'+esc(q.type)+'</span></div><div class="row" style="gap:6px">'+m.qs.map(function(_,k){var b=m.best[k];return '<span style="flex:1;height:8px;border-radius:99px;background:'+(b!=null?mCol(b):k===m.i?'var(--accent)':'var(--line)')+'"></span>'}).join('')+'</div>';
+  h+=vcBanner()+'<div class="chat">';
+  (m.thread[m.i]||[]).forEach(function(x){h+='<div class="'+(x.me?'rt':'')+'"><div class="who">'+(x.me?'You':'Interviewer')+'</div><div class="bubble '+(x.me?'me':'ai'+(x.note?' note2':''))+'">'+esc(x.t)+'</div></div>'});
+  h+='</div>';
+  if(m.i===0&&!m.ready)return h+'<button class="btn big" data-act="mkReady" style="min-height:54px;font-size:18px">I am ready</button>';
+  if(m.loading)return h+'<div class="card" style="text-align:center"><div class="spin"></div><b>Reviewing your answer…</b></div>';
+  if(!m.fb){
+    if(m.try>0&&m.stage==='answer')h+='<div class="msg wait"><b>Try '+(m.try+1)+'.</b> Last score '+m.prev[m.prev.length-1]+'. Add what the feedback asked for, then answer again.</div>';
+    h+='<div class="row wrap"><button class="btn quiet sm" data-act="mkHow">📋 How to answer</button><button class="btn quiet sm" data-act="mkSamp">💬 Sample answer</button></div>';
+    if(m.howOpen)h+='<div class="soft"><b>How to answer</b><ol style="margin:6px 0 0;padding-left:20px">'+outlineFor(q).map(function(x){return '<li>'+esc(x)+'</li>'}).join('')+'</ol></div>';
+    if(m.sampOpen)h+=mkSampleCard(q);
+    h+=recorderCard(m,'mk',m.stage==='follow'?'Your answer to the follow-up':'Your answer (voice)');
+    h+='<button class="btn big" data-act="mkSubmit" style="min-height:54px;font-size:17px"'+((m.tr&&wc(m.tr)>=3&&!m.rec&&!m.busy)?'':' disabled')+'>Get my score and feedback</button>';
+    return h;
+  }
+  return h+mkFeedback(q);
+}
+function mkSampleCard(q){
+  var m=V.mk,s=q.intro?introTemplate():((m.bestFb[m.i]||m.fb||{}).suggested||'');
+  if(!s)return '<div class="soft"><b>Sample answer</b><div class="small muted">A sample is built from your own details right after your first try, so it fits what you actually said. Use How to answer for now.</div></div>';
+  return '<div class="soft"><b>Sample answer</b><div class="small muted">Built from your details. Use it as a guide, with your real facts.</div><div style="margin-top:6px">'+esc(s)+'</div><button class="btn quiet sm" data-act="mkHearS" style="margin-top:8px">🔊 Listen to it</button></div>';
+}
+function mkStartView(){
+  var m=V.mk,me=S.me,h='<div><span class="eyebrow">Mock interview</span><h1>Interview for '+esc(S.targetRole)+'</h1><p class="muted small" style="margin:6px 0 0">The interviewer speaks each question and shows it as text. You answer by voice. After every answer you get a score, feedback and a suggested answer. Below <b>75</b> is not good enough yet, so you practise that question again.</p></div>';
+  h+='<div class="card"><div class="row between"><b>'+esc(me.name)+'</b><span class="pill">'+esc(me.years)+' yrs · '+esc(me.role)+'</span></div><div class="small muted">Question 1 uses your details'+(S.resume?' and resume':'')+'. The other questions are for the role.</div><label>How many questions?</label><div class="row">'+[3,5,8].map(function(n){return '<button class="chip'+(m.n===n?' on':'')+'" data-mkn="'+n+'">'+n+'</button>'}).join('')+'</div></div>';
+  h+='<div class="card"><b>The meter</b>'+meterSvg(80,200)+meterLegend()+'</div>';
+  if((S.mocks||[]).length)h+='<div class="card"><b>Your earlier mock interviews</b>'+S.mocks.slice(0,5).map(function(x){return '<div class="row between small"><span>'+new Date(x.at).toLocaleDateString()+' · '+esc(x.role)+'</span><b class="mpill '+mCls(x.overall)+'">'+x.overall+'</b></div>'}).join('')+'</div>';
+  if(!FB.user)h+='<div class="msg wait">You are not signed in, so you will get basic feedback only. Sign in for AI scoring and voice-to-text.</div>';
+  return h+'<button class="btn big" data-act="mkStart" style="min-height:54px;font-size:18px">Start mock interview</button>';
+}
+function mkFeedback(q){
+  var m=V.mk,fb=m.fb,good=fb.total>=V_BAR,h='';
+  h+='<div class="card"><div class="row between"><b>Your score for this question</b><span class="small muted">Try '+(m.try+1)+'</span></div>'+meterSvg(fb.total)+(m.prev.length?'<div class="small muted" style="text-align:center">Earlier tries: '+m.prev.join(' → ')+' → <b>'+fb.total+'</b></div>':'')+
+   '<div class="note">'+(good?'Well done. This is green. You can move on.':fb.total>=55?'Close. Under 75 is not good enough yet. Fix the points below and try again.':'Not yet. Read the suggestions and the sample answer, then try again.')+(fb.basic?' (Basic feedback. The AI was not available.)':'')+'</div></div>';
+  h+='<div class="card" style="border-color:var(--accent)"><h2>Suggested answer</h2><div class="small muted">Built from your details'+(q.intro&&S.resume?' and resume':'')+'. Say it in your own words, with your real numbers.</div>'+
+    (fb.suggested?'<div class="soft">'+esc(fb.suggested)+'</div><button class="btn quiet" data-act="mkHearS">🔊 Listen to it</button>':'<div class="soft"><b>Follow this outline</b><ol style="margin:6px 0 0;padding-left:20px">'+outlineFor(q).map(function(x){return '<li>'+esc(x)+'</li>'}).join('')+'</ol></div>')+'</div>';
+  h+='<div class="card"><h2>Skills</h2>'+Object.keys(MK_W).map(function(k){var v=Math.round(fb.scores[k]);return '<div><div class="row between small"><b>'+MK_NAMES[k]+'</b><span style="font-weight:800">'+v+' <span class="mpill '+mCls(v)+'">'+(v>=75?'Green':v>=55?'Amber':'Red')+'</span></span></div><div class="bar2"><i style="width:'+v+'%;background:'+mCol(v)+'"></i><u></u></div></div>'}).join('')+'<div class="small muted">Black line = 75, the score to reach.</div></div>';
+  var low=Object.keys(MK_W).filter(function(k){return fb.scores[k]<75}).sort(function(a,b){return fb.scores[a]-fb.scores[b]}).slice(0,3);
+  h+='<div class="card"><h2>How to improve</h2>'+(fb.worked?'<div class="small"><b>What worked:</b> '+esc(fb.worked)+'</div>':'')+((fb.improve&&fb.improve.length)?fb.improve.map(function(x,i){return '<div class="small"><b>'+(i+1)+'.</b> '+esc(x)+'</div>'}).join(''):low.map(function(k,i){return '<div class="small"><b>'+(i+1)+'. '+MK_NAMES[k]+'.</b> '+MK_FIX[k]+'</div>'}).join(''))+((fb.missing&&fb.missing.length)?'<div class="small muted">Role ideas missing: '+fb.missing.map(esc).join(', ')+'</div>':'')+((fb.flags&&fb.flags.length)?'<div class="msg wait small"><b>Check against your details:</b> '+fb.flags.map(esc).join(' ')+'</div>':'')+'</div>';
+  h+=good?'<button class="btn big" data-act="mkNext" style="min-height:54px;font-size:17px">'+(m.i+1>=m.qs.length?'See my final score':'Next question')+'</button>':'<button class="btn big" data-act="mkRetry" style="min-height:54px;font-size:17px">Practise this question again</button>'+(m.try>=1?'<button class="btn ghost" data-act="mkNext">Move on anyway (counts as '+Math.max.apply(null,m.prev.concat([fb.total]))+')</button>':'');
+  return h;
+}
+function mkFinal(){
+  var m=V.mk,bests=m.best,avg=Math.round(bests.reduce(function(a,b){return a+b},0)/bests.length),sk={},k;
+  Object.keys(MK_W).forEach(function(k){var v=0;m.bestFb.forEach(function(f){v+=f.scores[k]});sk[k]=Math.round(v/m.bestFb.length)});
+  var minS=Math.min.apply(null,Object.keys(sk).map(function(k){return sk[k]})),fit=fitVerdict(avg,minS),low=Object.keys(sk).sort(function(a,b){return sk[a]-sk[b]}).slice(0,2);
+  var h='<div><span class="eyebrow">Final result</span><h1>'+esc(S.me.name)+' for '+esc(S.targetRole)+'</h1></div>';
+  h+='<div class="card"><b>Overall score</b>'+meterSvg(avg)+meterLegend()+'<div style="text-align:center"><span class="mpill '+fit[1]+'" style="font-size:15px">'+fit[0]+'</span></div><div class="note">'+fit[2]+' Needed: 75 or more overall and no skill below 60.</div></div>';
+  h+='<div class="card"><h2>Fit for '+esc(S.targetRole)+'</h2>'+Object.keys(MK_W).map(function(k){var v=sk[k];return '<div class="row between small"><span>'+MK_NAMES[k]+'</span><b class="mpill '+mCls(v)+'">'+v+'</b></div>'}).join('')+'<div><b>Biggest gaps</b><div class="small muted">'+low.map(function(k){return MK_NAMES[k]+': '+MK_FIX[k]}).join('<br>')+'</div></div></div>';
+  h+='<div class="card"><h2>Each question</h2>'+m.qs.map(function(q,i){var t=m.tries[i]||1;return '<div class="row between small"><span style="flex:1">'+(i+1)+'. '+esc(q.q.length>50?q.q.slice(0,50)+'…':q.q)+'</span><span>'+t+(t>1?' tries':' try')+'</span> <b class="mpill '+mCls(bests[i])+'">'+bests[i]+'</b></div>'}).join('')+'</div>';
+  return h+'<button class="btn big" data-act="goPlanTab" style="min-height:54px;font-size:17px">Open my study plan</button><div class="row"><button class="btn quiet" data-act="mkAgain" style="flex:1">Mock again</button></div>';
+}
+function mkScoreCall(q,text,secs){
+  var m=V.mk;
+  return workerCall('/mock/answer',{phase:'score',question:q.q,type:q.type,intro:!!q.intro,answer:text,profile:{name:S.me.name,company:S.me.company,role:S.me.role,years:S.me.years,target:S.targetRole},resume:q.intro&&S.resume?S.resume.text.slice(0,MAXAI):'',topics:mkTopics(),delivery:delivery(text,secs)},60000);
+}
+function mkSubmit(){
+  var m=V.mk,q=m.qs[m.i],ta=$('#mkTr'),text=((ta&&ta.value)||m.tr||'').trim();
+  if(wc(text)<3||m.loading||m.busy)return;
+  m.thread[m.i].push({t:text,me:true});m.tr=text;
+  var doScore=function(full,secs){
+    m.loading=true;render();
+    var done=function(fb){m.loading=false;fb.full=full;m.fb=fb;m.stage='answer';render();var g=document.querySelector('#main .gauge');if(g&&g.scrollIntoView)g.scrollIntoView({block:'center'})};
+    mkScoreCall(q,full,secs).then(function(j){
+      if(q.intro&&!j.suggested)j.suggested='';
+      done(j);
+    },function(e){
+      var fb=basicScore(q,full,secs);if(e&&e.code==='limit')fb.worked='You used today\'s AI scoring. This is a basic check.';
+      if(q.intro){fb.suggested=introTemplate()}
+      done(fb);
+    });
+  };
+  if(m.stage==='answer'&&!m.fuUsed){
+    var rule=probeRule(q,text);
+    if(rule){
+      m.fuUsed=true;m.loading=true;render();
+      var ask=function(react,fq){m.loading=false;m.stage='follow';m.first=text;m.firstSecs=m.secs;m.tr='';m.blob=null;m.secs=0;m.err='';var line=(react?react+' ':'')+fq;m.thread[m.i].push({t:line,note:true});render();say(line);$('#main').scrollTop=$('#main').scrollHeight};
+      workerCall('/mock/answer',{phase:'followup',question:q.q,answer:text,role:S.targetRole},14000).then(function(j){if(j.followup){ask(j.reaction,j.followup)}else{m.loading=false;doScore(text,m.secs)}},function(){ask('Okay, I see.',rule)});
+      return;
+    }
+  }
+  var full=m.stage==='follow'?m.first+' '+text:text,secs=m.stage==='follow'?(m.firstSecs||0)+m.secs:m.secs;
+  doScore(full,secs);
+}
+function introTemplate(){var me=S.me,r=(S.resume?S.resume.text:'').split(/\n/).map(function(x){return x.replace(/^[\s\-•*]+/,'').trim()}).filter(function(x){return x.length>12&&/\d/.test(x)}).slice(0,2),a=function(w){return /^[aeiou]/i.test(w||'')?'an':'a'};
+  return 'Hi, I am '+me.name+'. I am '+a(me.role)+' '+me.role+' at '+me.company+' with '+me.years+' years of experience. '+(r.length?'Some results from my work: '+r.join('. Also, ')+'. ':'Some results from my work: [one result with a number], and [a second result]. ')+'Before this, [your earlier role and what it taught you]. Now I am looking for '+a(S.targetRole)+' '+S.targetRole+' role because [why this role is your next step].'}
+function mkAct(a){
+  var m=V.mk;
+  if(a==='goYou'){V.tab='you';render();return true}
+  if(a==='goPlanTab'){V.tab='plan';V.seg='plan';render();$('#main').scrollTop=0;return true}
+  if(a==='mkStart'){
+    var qs=mockQuestions(m.n),n=m.n;V.mk=mkFresh(n);m=V.mk;m.step='run';m.qs=qs;m.thread=qs.map(function(){return []});
+    var g='Hi '+S.me.name.split(' ')[0]+', welcome. I am your interviewer today for the '+S.targetRole+' role. I will ask you '+qs.length+' questions, one at a time. Speak your answer out loud. After each answer I may ask a follow-up, then I will give you a score. Anything under 75 we will practise again. Ready?';
+    m.thread[0].push({t:g});render();say(g);$('#main').scrollTop=0;return true}
+  if(a==='mkReady'){m.ready=true;var l='Great, let us begin. '+m.qs[0].q;m.thread[0].push({t:l});render();say(l);return true}
+  if(a==='mkRepeat'){say(m.qs[m.i].q);return true}
+  if(a==='mkHow'){m.howOpen=!m.howOpen;render();return true}
+  if(a==='mkSamp'){m.sampOpen=!m.sampOpen;render();return true}
+  if(a==='mkHearS'){say((m.fb&&m.fb.suggested)||(m.bestFb[m.i]&&m.bestFb[m.i].suggested)||'');return true}
+  if(a==='mkMic'){recToggle('mk');return true}
+  if(a==='mkPlay'){if(RC.url){try{new Audio(RC.url).play()}catch(e){toast('Cannot play the recording')}}return true}
+  if(a==='mkRedo'){m.blob=null;m.tr='';m.err='';render();return true}
+  if(a==='mkDict'){dictToggle('mkTr');return true}
+  if(a==='mkSubmit'){mkSubmit();return true}
+  if(a==='mkRetry'){m.prev.push(m.fb.total);if(!m.bestFb[m.i]||m.fb.total>=m.bestFb[m.i].total)m.bestFb[m.i]=m.fb;m.try++;m.fb=null;m.tr='';m.blob=null;m.secs=0;m.err='';m.stage='answer';m.first='';var rl='No problem. Let us try that again. '+m.qs[m.i].q;m.thread[m.i].push({t:rl});render();say(rl);$('#main').scrollTop=$('#main').scrollHeight;return true}
+  if(a==='mkNext'){
+    var all=m.prev.concat([m.fb.total]),best=Math.max.apply(null,all);if(!m.bestFb[m.i]||m.fb.total>=m.bestFb[m.i].total)m.bestFb[m.i]=m.fb;
+    m.best[m.i]=best;m.tries[m.i]=all.length;
+    m.i++;m.try=0;m.prev=[];m.fb=null;m.tr='';m.blob=null;m.secs=0;m.err='';m.stage='answer';m.first='';m.fuUsed=false;m.howOpen=false;m.sampOpen=false;
+    if(m.i>=m.qs.length){
+      m.step='final';var avg=Math.round(m.best.reduce(function(x,y){return x+y},0)/m.best.length),sk={};
+      Object.keys(MK_W).forEach(function(k){var v=0;m.bestFb.forEach(function(f){v+=f.scores[k]});sk[k]=Math.round(v/m.bestFb.length)});
+      S.mocks.unshift({at:Date.now(),role:S.targetRole,overall:avg,skills:sk,qs:m.qs.map(function(q,i){return {q:q.q,best:m.best[i],tries:m.tries[i]}})});S.mocks=S.mocks.slice(0,30);save();render();$('#main').scrollTop=0;return true}
+    var q=m.qs[m.i],l2=(m.best[m.i-1]>=75?'Nice, that was a solid answer. ':'Okay, we will work on that one again later. ')+'Next question. '+q.q;m.thread[m.i].push({t:l2});render();say(q.q);$('#main').scrollTop=0;return true}
+  if(a==='mkAgain'){V.mk=mkFresh(m.n);render();return true}
+  return false;
+}
+/* ---------- talk anything ---------- */
+var TK_TOPICS=['Pitch yourself','Explain a project','My startup idea','Free topic'];
+function vTalkTab(){
+  var t=V.tk,h='<div><span class="eyebrow">Talk anything</span><h1>Pitch, explain, or just talk</h1><p class="muted small" style="margin:6px 0 0">Pick a topic or type your own. Speak for up to three minutes. You get a score, a red, amber, green meter and tips.</p></div>';
+  h+='<div class="card"><label>Topic</label><div class="row wrap">'+TK_TOPICS.map(function(x){return '<button class="chip'+(t.topic===x?' on':'')+'" data-tkt="'+esc(x)+'">'+esc(x)+'</button>'}).join('')+'</div><label for="tkCustom">Or your own topic</label><input id="tkCustom" maxlength="120" value="'+esc(t.custom)+'" placeholder="For example: why our team should adopt Jira"></div>';
+  if(!t.fb){
+    h+='<div class="card"><div style="text-align:center">'+meterSvg(0,200)+meterLegend()+'</div></div>';
+    h+=recorderCard(t,'tk','Your talk (voice)');
+    h+='<button class="btn big" data-act="tkSubmit" style="min-height:54px;font-size:17px"'+((t.tr&&wc(t.tr)>=8&&!t.rec&&!t.busy)?'':' disabled')+'>Get feedback</button>';
+    if(t.loading)h+='<div class="card" style="text-align:center"><div class="spin"></div><b>Listening to your talk…</b></div>';
+    return h;
+  }
+  var f=t.fb;
+  h+='<div class="card"><b>Your feedback meter</b>'+meterSvg(f.total)+meterLegend()+'<div class="note">'+(f.total>=75?'Green. Clear and confident.':f.total>=55?'Amber. Good start, tighten it.':'Red. Needs a clearer structure.')+(f.basic?' (Basic feedback. The AI was not available.)':'')+'</div></div>';
+  h+='<div class="card"><h2>Scores</h2>'+[['Clarity',f.clarity],['Structure',f.structure],['Confidence',f.confidence],['Pace',f.pace],['Filler words',f.fillers]].map(function(s){return '<div><div class="row between small"><b>'+s[0]+'</b><span style="font-weight:800">'+s[1]+' <span class="mpill '+mCls(s[1])+'">'+(s[1]>=75?'Green':s[1]>=55?'Amber':'Red')+'</span></span></div><div class="bar2"><i style="width:'+s[1]+'%;background:'+mCol(s[1])+'"></i><u></u></div></div>'}).join('')+'<div class="small muted">'+f.words+' words · '+mTime(f.secs)+(f.wpm?' · '+f.wpm+' words a minute':'')+' · '+f.nfill+' filler words</div></div>';
+  h+='<div class="card" style="border-color:var(--accent)"><h2>How to improve</h2>'+f.tips.map(function(x,i){return '<div class="small"><b>'+(i+1)+'.</b> '+esc(x)+'</div>'}).join('')+'</div>';
+  if(f.better)h+='<div class="card"><h2>A tighter version</h2><div class="soft">'+esc(f.better)+'</div><button class="btn quiet" data-act="tkHear">🔊 Listen</button></div>';
+  if(t.hist.length>1)h+='<div class="card"><b>This session</b>'+t.hist.map(function(x,i){return '<div class="row between small"><span>Take '+(i+1)+'</span><b class="mpill '+mCls(x)+'">'+x+'</b></div>'}).join('')+'</div>';
+  return h+'<button class="btn big" data-act="tkAgain" style="min-height:54px;font-size:17px">Try again</button>';
+}
+function tkAct(a){
+  var t=V.tk;
+  if(a==='tkMic'){recToggle('tk');return true}
+  if(a==='tkPlay'){if(RC.url){try{new Audio(RC.url).play()}catch(e){}}return true}
+  if(a==='tkRedo'){t.blob=null;t.tr='';t.err='';render();return true}
+  if(a==='tkDict'){dictToggle('tkTr');return true}
+  if(a==='tkAgain'){t.fb=null;t.tr='';t.blob=null;t.secs=0;t.err='';render();return true}
+  if(a==='tkHear'){say(t.fb.better);return true}
+  if(a==='tkSubmit'){
+    var ta=$('#tkTr'),text=((ta&&ta.value)||t.tr||'').trim();if(wc(text)<8){toast('Say a little more first.');return true}
+    t.loading=true;render();var d=delivery(text,t.secs),topic=(t.custom||'').trim()||t.topic;
+    var done=function(f){t.loading=false;f.words=d.words;f.secs=d.secs;f.nfill=d.fillers;t.fb=f;t.hist.push(f.total);S.talks.unshift({at:Date.now(),topic:topic,score:f.total});S.talks=S.talks.slice(0,30);save();render();$('#main').scrollTop=0};
+    workerCall('/talk/score',{topic:topic,text:text,profile:{name:S.me.name,role:S.me.role,company:S.me.company,target:S.targetRole},delivery:d},60000).then(done,function(e){
+      var b=basicScore({q:topic},text,d.secs),w=d.secs>=10?d.words/(d.secs/60):0,fl=d.secs>=10?d.fillers/(d.secs/60):0;
+      done({total:b.total,clarity:b.scores.relevance,structure:b.scores.structure,confidence:b.scores.communication,pace:w?(w>=110&&w<=160?100:w>=90&&w<=180?75:50):70,fillers:fl?(fl<3?100:fl<6?75:45):70,wpm:Math.round(w),tips:b.improve.length?b.improve:['Keep this structure and practise once more.'],better:'',basic:true})});
+    return true}
+  return false;
+}
+/* ---------- About you ---------- */
+function vYou(){
+  var me=S.me,h='<div><span class="eyebrow">First, tell me about you</span><h1>A few quick questions</h1><p class="muted small" style="margin:6px 0 0">Your mock interview, answers and plan are built from this. Change it any time.</p></div>';
+  h+='<div class="card"><div class="step"><span class="num'+(me.name?' ok':'')+'">1</span><div style="flex:1"><label for="meName">What is your name?</label><input id="meName" value="'+esc(me.name)+'" placeholder="Your name" autocomplete="off"></div></div>'+
+   '<div class="step"><span class="num'+(me.company?' ok':'')+'">2</span><div style="flex:1"><label for="meCompany">Which company do you work at now?</label><input id="meCompany" value="'+esc(me.company)+'" placeholder="Current company" autocomplete="off"></div></div>'+
+   '<div class="step"><span class="num'+(me.role&&me.years?' ok':'')+'">3</span><div style="flex:1"><label for="meRole">Your current role and experience</label><input id="meRole" value="'+esc(me.role)+'" placeholder="For example Scrum Master" autocomplete="off"><div class="row" style="margin-top:8px"><span class="small muted">Years of experience</span><select id="meYears" style="width:140px"><option value="">Choose</option>'+[1,2,3,4,5,6,7,8,9,10,12,15,20,25].map(function(y){return '<option'+(String(y)===String(me.years)?' selected':'')+'>'+y+'</option>'}).join('')+'</select></div></div></div>'+
+   '<div class="step"><span class="num'+((S.targetRole||'').length>2?' ok':'')+'">4</span><div style="flex:1"><label for="meTarget">Which role are you looking for?</label><input id="meTarget" value="'+esc(S.targetRole||'')+'" placeholder="Start typing a role" autocomplete="off" enterkeyhint="search"><div id="sug_meTarget"></div></div></div></div>';
+  h+=vResearch((S.targetRole||'').trim());
+  h+='<div class="card"><div class="step"><span class="num'+(S.resume?' ok':'')+'">5</span><div style="flex:1"><b>Your resume</b> <span class="pill win">Optional</span><div class="small muted">Recommended. The first interview question and your suggested answers use it, so they sound like you. You add it once.</div></div></div></div>';
+  h+=vResume();
+  h+='<div class="card"><div class="step"><span class="num'+(S.jobM?' ok':'')+'">6</span><div style="flex:1"><b>AI analysis of your resume</b><div class="small muted">Checks it against '+esc(S.targetRole||'your target role')+': fit, strengths, gaps and missing keywords.</div></div></div><button class="btn" data-act="yoAnalyse"'+((S.resume&&(S.targetRole||'').length>2&&!V.jm.busy)?'':' disabled')+'>'+(V.jm.busy==='m'?'Analysing…':S.jobM?'Analyse again':'Analyse my resume')+'</button>'+(S.resume?'':'<div class="small muted">Add your resume first.</div>')+(V.jm.err?'<div class="msg no">'+esc(V.jm.err)+'</div>':'')+(V.jm.busy==='m'?'<p class="small muted">This usually takes 10 to 40 seconds.</p>':'')+(S.jobM?jmPart('a'):'')+'</div>';
+  h+='<div class="card"><div class="step"><span class="num'+(S.jobM?' ok':'')+'">7</span><div style="flex:1"><b>AI draft of your resume for '+esc(S.targetRole||'the new role')+'</b><div class="small muted">Rewrites your real experience for that role. It never invents jobs, tools or numbers. Gaps show as [brackets].</div></div></div><button class="btn" data-act="yoDraft"'+((S.resume&&(S.targetRole||'').length>2&&!V.jm.busy)?'':' disabled')+'>'+(V.jm.busy==='m'?'Drafting…':S.jobM?'Draft again':'Draft my resume')+'</button>'+(S.jobM?jmPart('d'):'')+'</div>';
+  h+='<button class="btn big" data-act="yoMock" style="min-height:54px;font-size:17px"'+(meReady()?'':' disabled')+'>Build my mock interview</button>';
+  /* progress */
+  if(S.mocks.length||S.talks.length){
+    h+='<div class="card"><h2>Your fit so far</h2>'+(S.mocks.length?'<div class="row between small"><span>Latest mock interview</span><b class="mpill '+mCls(S.mocks[0].overall)+'">'+S.mocks[0].overall+'</b></div><div class="row wrap" style="gap:6px">'+S.mocks.slice(0,8).reverse().map(function(x){return '<span class="mpill '+mCls(x.overall)+'">'+x.overall+'</span>'}).join('')+'</div>':'')+(S.talks.length?'<div class="small muted">Talk sessions: '+S.talks.length+' · latest '+S.talks[0].score+'</div>':'')+'</div>';
+  }
+  /* change person */
+  h+='<div class="card"><b>Change person</b><p class="small muted" style="margin:0">Use this app for someone else, or start again from zero. The resume is changed with Replace or edit above.</p>'+(V.confirmFresh?'<div class="soft"><b>Start fresh for a different person?</b><div class="small muted">This clears name, role, resume, analysis, drafted resume, mock scores, talks and plan progress on this account.</div><div class="row" style="margin-top:8px"><button class="btn" data-act="yoFresh">Yes, start fresh</button><button class="btn ghost" data-act="yoFreshNo">Cancel</button></div></div>':'<button class="btn ghost" data-act="yoFreshAsk">Start fresh for a different person</button>')+'</div>';
+  h+=vSettingsCard();
+  return h;
+}
+function jmPart(w){var s=vJobM(),i=s.indexOf('<div class="card"><div class="row between"><b>Your new resume</b>');return w==='a'?(i>0?s.slice(0,i):s):(i>0?s.slice(i):'')}
+async function dlPdf(r,role){
+  await loadScript('https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js');
+  var doc=new window.jspdf.jsPDF({unit:'pt',format:'a4'}),txt=resumeText(r),lines=doc.splitTextToSize(txt,500),y=50,i;
+  doc.setFont('helvetica','normal');doc.setFontSize(10.5);
+  for(i=0;i<lines.length;i++){if(y>790){doc.addPage();y=50}doc.text(lines[i],48,y);y+=14}
+  doc.save(((r.name||'Resume').replace(/[^\w \-]+/g,'').trim()+' - '+(role||'Resume').replace(/[^\w \-]+/g,'').trim()).slice(0,80)+'.pdf');
+}
+function dlTxt(r,role){var b=new Blob([resumeText(r)],{type:'text/plain'}),a=document.createElement('a');a.href=URL.createObjectURL(b);a.download=((r.name||'Resume')+' - '+(role||'Resume')).replace(/[^\w \-]+/g,'').slice(0,80)+'.txt';document.body.appendChild(a);a.click();setTimeout(function(){URL.revokeObjectURL(a.href);a.remove()},2000)}
+function yoFreshDo(){
+  S.me={name:'',company:'',role:'',years:''};S.resume=null;S.jobM=null;S.jobQ=null;S.mocks=[];S.talks=[];S.plan=null;S.planDone={};S.added=[];S.crack={};S.targetRole='';S.research={};S.resumeAsked=true;S.resumeNever=false;
+  V.mk=mkFresh();V.tk={topic:'Pitch yourself',rec:false,busy:'',err:'',tr:'',blob:null,secs:0,fb:null,hist:[],custom:''};V.rs={open:false,draft:'',busy:false,msg:''};V.jm={role:'',jd:'',busy:'',err:''};V.confirmFresh=false;V.setup=null;
+  save();render();$('#main').scrollTop=0;toast('Starting fresh');
+}
+function yoAct(a){
+  if(a==='yoAnalyse'||a==='yoDraft'){V.jm.role=S.targetRole;V.jm.jd='';var key=jobKey(S.targetRole,'',S.resume?S.resume.text:'');if(S.jobM&&S.jobM.key===key&&a==='yoDraft'){toast('Your draft is ready below.');return true}runJob('m',a==='yoAnalyse'&&!!S.jobM&&S.jobM.key===key);return true}
+  if(a==='yoMock'){if(!meReady()){toast('Finish items 1 to 4 first.');return true}V.tab='mock';V.mk=V.mk&&V.mk.step==='run'?V.mk:mkFresh();render();$('#main').scrollTop=0;return true}
+  if(a==='yoFreshAsk'){V.confirmFresh=true;render();return true}
+  if(a==='yoFreshNo'){V.confirmFresh=false;render();return true}
+  if(a==='yoFresh'){yoFreshDo();return true}
+  if(a==='dlPdf'){if(S.jobM)dlPdf(S.jobM.resume,S.jobM.role).catch(function(){toast('Could not make the PDF. Use Word or Copy text.')});return true}
+  if(a==='dlTxt'){if(S.jobM)dlTxt(S.jobM.resume,S.jobM.role);return true}
+  return false;
+}
+function setTargetFromBox(v){S.targetRole=v;save()}
+/* ---------- Plan tab extras ---------- */
+function vFitCard(){
+  var last=S.mocks[0],v=last?last.overall:null;
+  return '<div class="card"><div class="row between"><b>Fit score now</b><b class="mpill '+(v==null?'mr':mCls(v))+'">'+(v==null?'No mock yet':v+' of 100')+'</b></div><div class="bar2"><i style="width:'+(v||0)+'%;background:'+mCol(v||0)+'"></i><u></u></div><div class="small muted">Goal: 75 or more in your weekly mock interview.</div>'+(S.mocks.length>1?'<div class="row wrap" style="gap:6px">'+S.mocks.slice(0,8).reverse().map(function(x){return '<span class="mpill '+mCls(x.overall)+'">'+x.overall+'</span>'}).join('')+'</div>':'')+'<button class="btn" data-act="planMock">Start my weekly mock interview</button></div>';
+}
+
+function v19Input(e){
+  var id=e.target.id,v=e.target.value;
+  if(id==='meName'||id==='meCompany'||id==='meRole'){S.me[id==='meName'?'name':id==='meCompany'?'company':'role']=v;var b=document.querySelector('[data-act=yoMock]');if(b)b.disabled=!meReady()}
+  else if(id==='meTarget'){S.targetRole=v;showSug('meTarget');var b2=document.querySelector('[data-act=yoMock]');if(b2)b2.disabled=!meReady()}
+  else if(id==='tkCustom'){V.tk.custom=v}
+  else if(id==='mkTr'||id==='tkTr'){var st=id==='mkTr'?V.mk:V.tk;st.tr=v;var sb=document.querySelector('[data-act='+(id==='mkTr'?'mkSubmit':'tkSubmit')+']');if(sb)sb.disabled=wc(v)<(id==='mkTr'?3:8)}
+}
+document.addEventListener('input',v19Input);
+document.addEventListener('change',function(e){var id=e.target.id;if(id==='meYears'){S.me.years=e.target.value;save();var b=document.querySelector('[data-act=yoMock]');if(b)b.disabled=!meReady()}else if(id==='meName'||id==='meCompany'||id==='meRole'||id==='meTarget'){save()}});
+document.addEventListener('focusin',function(e){if(e.target.id==='meTarget')showSug('meTarget')});
+document.addEventListener('keydown',function(e){if(e.key==='Enter'&&e.target.id==='meTarget'){e.preventDefault();var sb=document.getElementById('sug_meTarget');if(sb)sb.innerHTML='';var r=e.target.value.trim();S.targetRole=r;learnRole(r);save();rrRun(r);e.target.blur()}});
+
 function render(){
-  $('#profBtn').textContent=gate()?'Sign in':(S.profile?label()+' ▾':'Who are you?');
+  S.me=S.me||{name:'',company:'',role:'',years:''};S.mocks=S.mocks||[];S.talks=S.talks||[];if(!S.profile)S.profile={type:'professional',spec:'',goal:'Promotion'};V.onb=false;V.resumeStep=false;
+  $('#profBtn').textContent=gate()?'Sign in':(S.me.name?S.me.name.split(' ')[0]+' ▾':'About you');
   var gated=gate();
   $('#tabs').style.display=(S.profile&&!V.onb&&!gated&&!V.resumeStep)?'':'none';
   var m=$('#main'),h;
   if(gated)h=vSignin();
   else if(!S.profile||V.onb)h=vOnboard();
   else if(V.resumeStep)h=vResumeStep();
-  else if(V.view==='speak'&&V.prompt)h=vSpeak();
-  else h={today:vToday,interview:vJobs,study:vPrepare,practice:vPractice,progress:vProgress}[V.tab]();
+    else h={you:vYou,mock:vMock,plan:vPrepare,talk:vTalkTab}[V.tab]();
   var y=m.scrollTop;m.innerHTML=h;layout();m.scrollTop=y;
   var sel=$('#lang');if(sel)sel.value=S.lang;
   renderTabs();applyLook();
@@ -1074,11 +1467,11 @@ function render(){
 /* ---------- events ---------- */
 function openSwitch(){V.onb=true;if(S.profile){V.pt=S.profile.type;V.pspec=S.profile.spec||'';var g=PROFILES[V.pt].goals;if(g.indexOf(S.profile.goal)>=0){V.pg=S.profile.goal;V.pgs=''}else{V.pg='Other';V.pgs=S.profile.goal||''}}render();$('#main').scrollTop=0}
 function goPrompt(p,force){
-  if(!force&&!S.resume&&!S.resumeNever&&!S.resumeAsked&&!V.modal){S.resumeAsked=true;S.resumeAskDay=dayIdx();save();V.pendingPrompt=p;V.modal='resume';V.modalNew=true;V.rs={open:true,draft:'',busy:false,msg:''};render();return}
+  if(false&&!force&&!S.resume&&!S.resumeNever&&!S.resumeAsked&&!V.modal){S.resumeAsked=true;S.resumeAskDay=dayIdx();save();V.pendingPrompt=p;V.modal='resume';V.modalNew=true;V.rs={open:true,draft:'',busy:false,msg:''};render();return}
   V.prompt=p;V.view='speak';V.res=null;V.typed=false;V.tab='practice';V.aiBusy=false;V.aiErr='';V.aiExtra='';render();$('#main').scrollTop=0}
 document.addEventListener('click',function(e){
   var hb=e.target.closest('#profBtn,#modeBtn,#colBtn');
-  if(hb){if(hb.id==='colBtn'){var ks=Object.keys(THEMES),ni=(ks.indexOf(S.theme||'teal')+1)%ks.length;S.theme=ks[ni];save();applyLook();render();toast(THEMES[S.theme].n+' colour');return}if(hb.id==='profBtn'){if(gate()){if(FB.ready)signIn()}else openSwitch()}else{S.mode=isDark()?'light':'dark';save();applyLook()}return}
+  if(hb){if(hb.id==='colBtn'){var ks=Object.keys(THEMES),ni=(ks.indexOf(S.theme||'teal')+1)%ks.length;S.theme=ks[ni];save();applyLook();render();toast(THEMES[S.theme].n+' colour');return}if(hb.id==='profBtn'){if(gate()){if(FB.ready)signIn()}else{V.tab='you';render();$('#main').scrollTop=0}}else{S.mode=isDark()?'light':'dark';save();applyLook()}return}
   var t=e.target.closest('button');if(!t)return;
   var d=t.dataset;
   if(d.tab){if(T.on)return;V.tab=d.tab;V.sub=null;V.view=null;render();$('#main').scrollTop=0;return}
@@ -1103,7 +1496,11 @@ document.addEventListener('click',function(e){
   if(d.role){var inp=document.getElementById(d['for']);if(inp){inp.value=d.role;inp.dispatchEvent(new Event('input',{bubbles:true}));var sb3=document.getElementById('sug_'+d['for']);if(sb3)sb3.innerHTML='';rrRun(d.role)}return}
   if(d.theme){S.theme=d.theme;save();applyLook();render();return}
   if(d.jq){var pr=d.jq.split('.'),it=S.jobQ&&S.jobQ.groups[+pr[0]]&&S.jobQ.groups[+pr[0]].items[+pr[1]];if(it){V.aiRole=S.jobQ.role||V.aiRole;goPrompt({id:'jq'+hash(it.q),q:it.q,hint:it.tip,target:0})}return}
+  if(d.mkn){V.mk.n=+d.mkn;render();return}
+  if(d.tkt){V.tk.topic=d.tkt;V.tk.custom='';render();return}
   var a=d.act;if(!a)return;
+  if(a==='planMock'){V.tab='mock';render();$('#main').scrollTop=0;return}
+  if(mkAct(a)||tkAct(a)||yoAct(a))return;
   if(a==='finish'){if(!onbValid())return;S.profile={type:V.pt,spec:V.pt==='other'?V.pspec.trim():'',goal:V.pg==='Other'?V.pgs.trim():V.pg};V.onb=false;V.tab='today';if(!S.resume&&!S.resumeAsked){V.resumeStep=true;V.rs.open=true;V.rs.draft='';V.rs.msg=''}save();render();$('#main').scrollTop=0}
   else if(a==='cancelOnb'){V.onb=false;render()}
   else if(a==='switch')openSwitch();
@@ -1125,12 +1522,12 @@ document.addEventListener('click',function(e){
   else if(a==='mSkip'){closeModal()}
   else if(a==='mNever'){S.resumeNever=true;save();closeModal();toast('Okay. You can add your resume any time from the Interview tab.')}
   else if(a==='rsSkip'){S.resumeAsked=true;S.resumeAskDay=dayIdx();V.resumeStep=false;V.rs={open:false,draft:'',busy:false,msg:''};V.tab='today';save();render();$('#main').scrollTop=0}
-  else if(a==='rsGoLink'){V.tab='interview';V.sub=null;V.view=null;V.rs.open=true;V.rs.draft='';render();$('#main').scrollTop=0}
+  else if(a==='rsGoLink'){V.tab='you';V.sub=null;V.view=null;V.rs.open=true;V.rs.draft='';render();$('#main').scrollTop=0}
   else if(a==='bannerOff'){S.bannerOff=true;save();render()}
-  else if(a==='rsGo'){V.tab='interview';V.sub=null;V.view=null;V.rs.open=true;V.rs.draft='';render();$('#main').scrollTop=0}
+  else if(a==='rsGo'){V.tab='you';V.sub=null;V.view=null;V.rs.open=true;V.rs.draft='';render();$('#main').scrollTop=0}
   else if(a==='copyAns'){var ta=V.res&&V.res.ai?V.res.ai.better_answer:'';if(navigator.clipboard&&ta)navigator.clipboard.writeText(ta).then(function(){toast('Copied')},function(){toast('Could not copy')});else toast('Could not copy')}
-  else if(a==='goPrepare'){V.tab='study';V.seg='plan';V.sub=null;V.view=null;render();$('#main').scrollTop=0}
-  else if(a==='goInterview'){V.tab='interview';V.view=null;render();$('#main').scrollTop=0}
+  else if(a==='goPrepare'){V.tab='plan';V.seg='plan';V.sub=null;V.view=null;render();$('#main').scrollTop=0}
+  else if(a==='goInterview'){V.tab='you';V.view=null;render();$('#main').scrollTop=0}
   else if(a==='srScope'){V.scope=(V.scope===false);render()}
   else if(a==='speakResume'){V.modal='resume';V.pendingPrompt=null;V.modalNew=true;V.rs={open:true,draft:'',busy:false,msg:''};render()}
   else if(a==='planCreate'){var st=V.setup||{},rl=(st.role||($('#plRole')?$('#plRole').value:'')||'').trim();if(rl.length<3){toast('Choose or type the role first.');return}
